@@ -3,72 +3,33 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: public-source-diagnostics
-  cancel-in-progress: false
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - run: npm ci --omit=dev
-      - name: Check public lists, PDF hosts, and public Telegram pages
+      - name: Trace public report links without Telegram access
         run: |
-          node --input-type=module <<'SOURCE_DIAGNOSTICS_JS'
-          import { writeFile, appendFile } from 'node:fs/promises';
-          import { createHash } from 'node:crypto';
-          import { collectSource, inspectPdf } from './agent/lib/industry-sources.ts';
-          import { load } from 'cheerio';
-          const probes = [{"broker":"하나증권","kind":"list","url":"https://www.hanaw.com/main/research/research/list.cmd?pid=8&cid=2"},{"broker":"하나증권","kind":"public_pdf","url":"https://www.hanaw.com/download/research/FileServer/WEB/global/industry/2025/11/17/2026_ff.pdf"},{"broker":"미래에셋증권","kind":"list","url":"https://securities.miraeasset.com/bbs/board/message/list.do?categoryId=1525"},{"broker":"미래에셋증권","kind":"public_pdf","url":"https://securities.miraeasset.com/bbs/download/2147956.pdf?attachmentId=2147956"},{"broker":"대신증권","kind":"list","url":"https://money2.daishin.com/E5/ResearchCenter/DM_ResearchList.aspx"},{"broker":"대신증권","kind":"public_pdf","url":"https://money2.daishin.com/PDF/Out/intranet_data/Product/ResearchCenter/Report/2026/10/59718_econ_seongjanghwaldong_20261016_314_briefing_261019100907.pdf"},{"broker":"한화투자증권","kind":"list","url":"https://www.hanwhawm.com/main/research/main/list.cmd?depth3_id=anls2"},{"broker":"한화투자증권","kind":"public_pdf","url":"https://www.hanwhawm.com/main/common/common_file/fileView.cmd?bldid=bbs10031&category=2&depth3_id=anls19&key1=65489&key2=1"},{"broker":"토스증권","kind":"list","url":"https://corp.tossinvest.com/ko/investment-info?tab=research-insight"},{"broker":"토스증권","kind":"public_pdf","url":"https://home-files.tossinvest.com/files/investment-info/5d772aaa-d25c-46d5-bc2a-e0e26dd6ac6f.pdf"},{"broker":"교보증권","kind":"list","url":"https://m.iprovest.com/weblogic/ResearchServlet/newReports"},{"broker":"교보증권","kind":"public_pdf","url":"https://m.iprovest.com/weblogic/RSDownloadServlet?filePath=/research/report/idxnews/20261026/20261026_B10_20250023_54.pdf"},{"broker":"유안타증권","kind":"list","url":"https://www.myasset.com/myasset/research/rs_list/rs_list.cmd?cd006=&cd007=&cd008=&m_menuId=ind"},{"broker":"유안타증권","kind":"public_pdf","url":"https://www.myasset.com/myasset/common/commonFile/downloadFromFileServer.cmd?ATTACH_FILE=2025/1021/185006/20251021185006540_0_ko.pdf"},{"broker":"상상인증권","kind":"list","url":"https://www.sangsanginib.com/research/industryReport/industryReportView"},{"broker":"상상인증권","kind":"public_pdf","url":"https://www.sangsanginib.com/_upload/attFile/CM0338/CM0338_766_2.pdf"},{"broker":"현대차증권","kind":"list","url":"https://www.hmsec.com/mobile/research/research01_list.do?Menu_category=2"},{"broker":"현대차증권","kind":"public_pdf","url":"https://www.hmsec.com/documents/research/20261019191650450_ko.pdf"},{"broker":"한양증권","kind":"list","url":"https://www.hygood.co.kr/board/researchAnalyzeIssue/list"},{"broker":"한양증권","kind":"public_pdf","url":"https://www.hygood.co.kr/download?atchFileId=FILE_000000000092485"},{"broker":"iM증권","kind":"list","url":"https://www.imfnsec.com/main/main.jsp"},{"broker":"iM증권","kind":"public_pdf","url":"https://www.imfnsec.com/upload/R_E03/2026/06/%5B03195401%5D_260711.pdf"},{"broker":"LS증권","kind":"list","url":"https://www.ls-sec.co.kr/"},{"broker":"LS증권","kind":"public_pdf","url":"https://msg.ls-sec.co.kr/eum/K_20241106_31780_96.pdf"},{"broker":"신영증권","kind":"list","url":"https://www.shinyoung.com/"},{"broker":"신영증권","kind":"public_pdf","url":"https://www.shinyoung.com/files/20240530/ce7b0ae43a8a9.pdf"},{"broker":"IBK투자증권","kind":"list","url":"https://m.ibks.com/iko/IKO010301.do"},{"broker":"IBK투자증권","kind":"public_pdf","url":"https://m.ibks.com/iko/IKO01/download.do?attatchCd=ATTATCH1&menuCode=IKO010301&seq=11789"},{"broker":"신한투자증권","kind":"list","url":"https://www.shinhansec.com/siw/insights/research/list/view-popup.do"},{"broker":"신한투자증권","kind":"public_pdf","url":"https://file.shinhansec.com/filedoc/research/rsh_202608110021001.pdf"},{"broker":"유진투자증권","kind":"list","url":"https://www.eugenefn.com/comm/msgList.do?board_yn=Y&menu_id=02110400&menu_level=3&menu_url=%2Fingo%2Figii%2Figii412"},{"broker":"유진투자증권","kind":"public_pdf","url":"https://www.eugenefn.com/common/files/amail/20230120_B55_tjdgus2009_541.pdf"},{"broker":"삼성증권","kind":"list","url":"https://english.samsungpop.com/mbw/search/search.do?cmd=report_search"},{"broker":"삼성증권","kind":"public_pdf","url":"https://www.samsungpop.com/common.do?cmd=down&contentType=application%2Fpdf&fileName=2020%2F2025022714283805K_02_02.pdf&inlineYn=Y&saveKey=research.pdf"},{"broker":"KB증권","kind":"list","url":"https://rc.kbsec.com/main.able"},{"broker":"KB증권","kind":"public_pdf","url":"https://rdata.kbsec.com/pdf_data/20261008130540560K.pdf"},{"broker":"키움증권","kind":"list","url":"https://www1.kiwoom.com/h/invest/research/VAnalCRView"},{"broker":"키움증권","kind":"public_pdf","url":"https://invest.kiwoom.com/inv/resource/202610/UploadFile_20261020075948000292.pdf"},{"broker":"메리츠증권","kind":"list","url":"https://home.imeritz.com/dalyrpt/InfoMain.do"},{"broker":"메리츠증권","kind":"public_pdf","url":"https://home.imeritz.com/include/resource/research/WorkFlow/20260322212828885K_02.pdf"},{"broker":"유화증권","kind":"list","url":"https://www.yhs.co.kr/board/list/16"},{"broker":"유화증권","kind":"public_pdf","url":"https://www.yhs.co.kr/util/download?file_orinal=%EC%BB%B4%ED%88%AC%EC%8A%A4+260930.pdf&path_to_file=board%2F16%2F20261001104848_6abdbc00149f1.pdf"},{"broker":"NH투자증권","kind":"list","url":"https://www.nhisresearch.com/"},{"broker":"한국투자증권","kind":"list","url":"https://www.truefriend.com/main/bond/research/_static/TF03cc030300.jsp"},{"broker":"흥국증권","kind":"list","url":"https://www.heungkuksec.co.kr/research/company/list.do"},{"broker":"SK증권","kind":"list","url":"https://www.sks.co.kr/"},{"broker":"BNK투자증권","kind":"list","url":"https://www.bnkfn.co.kr/research/analysingIssue.jspx?bbsId=analysingIssue&cmd=list"},{"broker":"다올투자증권","kind":"list","url":"https://www.daolsecurities.com/research/article/common.jspx?rGubun=S01&sctrGubun=S04&web=0"},{"broker":"DB증권","kind":"list","url":"https://www.dbsec.co.kr/main/main.do"},{"broker":"부국증권","kind":"list","url":"https://www.bookook.co.kr/"},{"broker":"리딩투자증권","kind":"list","url":"https://www.leading.co.kr/board/equityresearch/list"},{"broker":"케이프투자증권","kind":"list","url":"https://www.capeib.com/"},{"broker":"하나증권","kind":"public_pdf_alias","url":"https://www.hanaw.com/download/research/FileServer/WEB/global/industry/2026/10/12/nuclear_Sihyun.pdf"},{"broker":"키움증권","kind":"telegram_public","url":"https://t.me/s/KiwoomResearch"},{"broker":"한국투자증권","kind":"telegram_public","url":"https://t.me/s/KISemicon"},{"broker":"한국투자증권","kind":"telegram_public","url":"https://t.me/s/enc210406"},{"broker":"팍스넷","kind":"public_aggregator","url":"https://www.paxnet.co.kr/stock/report/reportView?menuCode=3333&reportId=143905"},{"broker":"NH투자증권","kind":"public_pdf","url":"https://download.nhqv.com/CommFile/cis/rsh/com/CISPPR20261021145259270.pdf"}];
-          const suffixes = [...new Set(probes.map(x => new URL(x.url).hostname.replace(/^www\./,'')))];
-          const permitted = u => u.protocol === 'https:' && !u.username && !u.password && !u.port && suffixes.some(h => u.hostname === h || u.hostname.endsWith('.'+h));
-          const errorInfo = e => ({name:e?.name || 'Error',message:String(e?.message || e).slice(0,300),code:e?.code || null,causeCode:e?.cause?.code || null,causeMessage:String(e?.cause?.message || '').slice(0,300)});
-          async function probe(item) {
-           const start = Date.now(); let url = new URL(item.url); const redirects=[];
-           try {
-            let response;
-            for (let i=0;i<5;i++) {
-             if (!permitted(url)) return {...item,status:'redirect_not_approved',redirects,finalHost:url.hostname};
-             response = await fetch(url,{redirect:'manual',signal:AbortSignal.timeout(20000),headers:{'User-Agent':'IndustryReportWatch/0.7 (personal research diagnostics)'}});
-             if (response.status>=300 && response.status<400) {
-              const location=response.headers.get('location');
-              await response.body?.cancel();
-              if(!location) throw new Error('REDIRECT_WITHOUT_LOCATION');
-              const next=new URL(location,url); redirects.push({status:response.status,fromHost:url.hostname,toHost:next.hostname,path:next.pathname});url=next;continue;
-             }
-             break;
-            }
-            const base={...item,finalUrl:url.href,http:response?.status,contentType:response?.headers.get('content-type'),redirects,elapsedMs:Date.now()-start};
-            if(!response?.ok || !response.body) {await response?.body?.cancel();return {...base,status:'http_error'};}
-            const reader=response.body.getReader(); const chunks=[];let size=0;
-            try { while(size<1048576){const part=await reader.read();if(part.done)break;chunks.push(part.value);size+=part.value.length;if(size>=65536 && Buffer.concat(chunks).subarray(0,5).toString()==='%PDF-')break;} }
-            finally {await reader.cancel().catch(()=>{});}
-            const bytes=Buffer.concat(chunks);
-            if(bytes.subarray(0,5).toString()==='%PDF-') return {...base,status:'pdf_header_verified',prefixBytes:bytes.length,prefixSha256:createHash('sha256').update(bytes).digest('hex')};
-            const encoding=base.contentType?.match(/charset=([\w-]+)/i)?.[1] || 'utf-8';
-            const html=new TextDecoder(encoding).decode(bytes),$=load(html);const title=$('title').text().trim();
-            const scripts=$('script[src],iframe[src]').map((_,e)=>{try{return new URL($(e).attr('src'),url).href;}catch{return null;}}).get().filter(Boolean).slice(-15);
-            $('script,style,noscript').remove();
-            const links=$('a[href]').map((_,e)=>{const href=$(e).attr('href')||'';if(!/pdf|research|report|리서치|산업|분석|다운로드|t\.me|download|rf[A-Z]|attachment/i.test(href+' '+$(e).text()))return null;try{const u=new URL(href,url);return /^https?:$/.test(u.protocol)?{text:$(e).text().replace(/\s+/g,' ').trim().slice(0,100),url:u.href}:null;}catch{return null;}}).get().filter(Boolean).slice(-30);
-            const body=$('body').text().replace(/\s+/g,' ').trim();
-            return {...base,status:'page_read',title,bodyExcerpt:body.slice(-1500),links,scripts};
-           }catch(e){return {...item,status:'network_error',elapsedMs:Date.now()-start,error:errorInfo(e),redirects};}
-          }
-          console.log(JSON.stringify({event:'diagnostic_environment',node:process.version,platform:process.platform,probes:probes.length,telegramSending:false}));
-          try {
-           const list=await collectSource('hana',{maxPages:1});const candidate=list.reports.find(r=>r.pdfUrl) || list.reports[0];
-           console.log(JSON.stringify({event:'hana_list_diagnostic',count:list.reports.length,candidate:candidate?{id:candidate.sourceId,title:candidate.title,pdfUrl:candidate.pdfUrl}:null}));
-           if(candidate){try{const pdf=await inspectPdf(candidate);console.log(JSON.stringify({event:'hana_full_pdf',status:'verified',pages:pdf.pages,bytes:pdf.pdfBytes.length,sha256:pdf.pdfHash}));}catch(e){console.log(JSON.stringify({event:'hana_full_pdf',status:'failed',error:errorInfo(e)}));}}
-          }catch(e){console.log(JSON.stringify({event:'hana_list_diagnostic',status:'failed',error:errorInfo(e)}));}
-          const results=[];
-          for(let i=0;i<probes.length;i+=4){const batch=await Promise.allSettled(probes.slice(i,i+4).map(probe));for(let j=0;j<batch.length;j++){const value=batch[j].status==='fulfilled'?batch[j].value:{...probes[i+j],status:'unexpected_error'};results.push(value);console.log(JSON.stringify({event:'public_source_probe',...value}));}}
-          await writeFile('source-diagnostics-latest.json',JSON.stringify({checkedAt:new Date().toISOString(),telegramSending:false,results},null,2));
-          const summary=['# Public source diagnostics','',`Checked ${results.length} public endpoints. No Telegram messages were sent.`,'','| Brokerage | Type | Result | HTTP |','| --- | --- | --- | --- |',...results.map(x=>`| ${x.broker} | ${x.kind} | ${x.status} | ${x.http || x.error?.causeCode || ''} |`)];
-          if(process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY,summary.join('\n'));
-          SOURCE_DIAGNOSTICS_JS
+          cat > public-link-diagnostics.mjs <<'PUBLIC_DIAGNOSTIC'
+          import {load} from 'cheerio';
+          import {collectSource} from './agent/lib/industry-sources.ts';
+          const output=(x)=>console.log(JSON.stringify({event:'public_link_diagnostic',...x}));
+          const hosts=new Set(['bit.ly','buly.kr','zrr.kr','han.gl','vo.la','tinyurl.com','naver.me','www.samsungpop.com','english.samsungpop.com','securities.koreainvestment.com','www.truefriend.com','file.truefriend.com','www.sks.co.kr','sks.co.kr','research.sks.co.kr','www.heungkuksec.co.kr','rdata.kbsec.com','rc.kbsec.com']);
+          async function trace(label,address){for(let hop=0;hop<6;hop++){let u=new URL(address);if(u.protocol==='http:')u.protocol='https:';if(u.protocol!=='https:'||u.username||u.password||!hosts.has(u.hostname))return output({label,hop,unapprovedTarget:u.href});try{const r=await fetch(u,{redirect:'manual',signal:AbortSignal.timeout(20000)});const type=r.headers.get('content-type')||'';const location=r.headers.get('location');if(location){await r.body?.cancel();output({label,hop,url:u.href,status:r.status,location});address=new URL(location,u).href;continue;}if(/application\/pdf/i.test(type)){await r.body?.cancel();return output({label,hop,url:u.href,status:r.status,type,pdf:true});}const reader=r.body.getReader();let chunks=[],size=0;while(true){const p=await reader.read();if(p.done)break;chunks.push(p.value);size+=p.value.length;if(size>350000)break;}await reader.cancel();const body=Buffer.concat(chunks).toString('utf8'),$=load(body);output({label,hop,url:u.href,status:r.status,type,title:$('title').text(),text:$('body').clone().find('script,style').remove().end().text().replace(/\s+/g,' ').slice(0,450),links:$('a[href],iframe[src],embed[src],object[data],meta[http-equiv]').map((_,e)=>$(e).attr('href')||$(e).attr('src')||$(e).attr('data')||$(e).attr('content')).get().filter(v=>/pdf|stream|file|url=/i.test(v)).slice(0,12),scripts:$('script').map((_,e)=>({src:$(e).attr('src'),text:$(e).text().split('\n').filter(v=>/pdf|fileName|issueDate|location|streamdocs|window\.open/i.test(v)).slice(0,18).join('\n').slice(0,7000)})).get().filter(v=>v.src||v.text).slice(0,12)});return;}catch(e){return output({label,hop,url:u.href,error:e.message,cause:e.cause?.code});}}}
+          await Promise.all([
+           trace('KIS optical indepth','https://zrr.kr/zIdBA4'),
+           trace('Samsung personal agent','https://bit.ly/4eFFgcU'),
+           trace('Samsung components','https://bit.ly/4bRyYG3'),
+           trace('SK report shortener','https://buly.kr/uX6ZFg'),
+           trace('KB report shortener','https://bit.ly/3Og5fhk')
+          ]);
+          for(const channel of ['lovequant','KB_EPC_MJ']){try{let r=await fetch('https://t.me/s/'+channel,{signal:AbortSignal.timeout(25000)});let html=await r.text(),$=load(html);let posts=$('.tgme_widget_message[data-post]').toArray().map(e=>({id:$(e).attr('data-post'),text:$(e).find('.tgme_widget_message_text').text().slice(0,1200),links:$(e).find('.tgme_widget_message_text a[href]').map((_,a)=>$(a).attr('href')).get()}));output({channel,status:r.status,posts});}catch(e){output({channel,error:e.message,cause:e.cause?.code});}}
+          const form=new URLSearchParams({curPage:'1',bbSeq:'',rGubun:'S01',sctrGubun:'S02',web:'0',hts:'',filepath:'',attaFileNm:'',startDate:'2026/04/28',endDate:'2026/10/27',searchSelect:'0',searchNm1:'',searchNm2:''});
+          try{let r=await fetch('https://www.daolsecurities.com/research/article/common.jspx?cmd=list&templet-bypass=true',{method:'POST',body:form,signal:AbortSignal.timeout(25000)});let html=await r.text();output({label:'daol public industry list',status:r.status,total:r.headers.get('totCount'),body:html.slice(0,18000)});}catch(e){output({label:'daol public industry list',error:e.message,cause:e.cause?.code});}
+          PUBLIC_DIAGNOSTIC
+          node public-link-diagnostics.mjs
