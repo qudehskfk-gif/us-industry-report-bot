@@ -1,0 +1,56 @@
+name: Industry reports to Telegram
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      initialize_only:
+        description: 'Record the starting point without sending reports'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: industry-reports-daily
+  cancel-in-progress: false
+
+jobs:
+  send-reports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      INDUSTRY_SOURCES: hankyung,naver,hana,mirae,toss,kyobo,yuanta,sangsang,hyundai,hanyang
+      STATE_REPO_DIR: ${{ runner.temp }}/report-bot-state
+      STATE_PATH: ${{ runner.temp }}/report-bot-state/deliveries.sqlite
+      RUN_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_only && 'initialize' || 'scheduled' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --omit=dev
+      - name: Restore notification history
+        id: history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-state.ts load
+      - name: Collect and deliver original PDFs
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BOT_SEND_ENABLED: 'true'
+          AI_CLASSIFY: 'false'
+          AI_SUMMARY: 'false'
+          GH_TOKEN: ${{ github.token }}
+        run: node agent/lib/cloud-once.ts
+      - name: Keep notification history for the next run
+        if: ${{ always() && steps.history.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-state.ts save
