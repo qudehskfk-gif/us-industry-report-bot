@@ -1,12 +1,16 @@
 import { collectSource, inspectPdf } from "../agent/lib/industry-sources.ts";
-import { PUBLIC_CHANNELS, type ChannelSource } from "../agent/lib/public-channels.ts";
+import { PUBLIC_CHANNELS, isChannelSource, type ChannelSource } from "../agent/lib/public-channels.ts";
+import { configuredSources } from "../agent/lib/source-config.ts";
 import { classifyIndustry } from "../agent/lib/industry-filter.ts";
 import { classifyUsFocus } from "../agent/lib/industry-focus.ts";
 import { publicError } from "../agent/lib/public-http.ts";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, appendFile } from "node:fs/promises";
 
 // Retrieval proof only: no Telegram sender, bot token, or chat ID is used.
-const sources = Object.keys(PUBLIC_CHANNELS) as ChannelSource[];
+const requested = process.env.PUBLIC_CHANNEL_SOURCES;
+const selected = requested ? configuredSources(requested) : Object.keys(PUBLIC_CHANNELS);
+if (selected.some(source => !isChannelSource(source))) throw new Error("공개 채널 출처 이름만 지정해 주세요.");
+const sources = selected as ChannelSource[];
 const results: Record<string, unknown>[] = [];
 for (let index = 0; index < sources.length; index += 2) {
   const batch = await Promise.all(sources.slice(index, index + 2).map(async source => {
@@ -36,3 +40,15 @@ for (let index = 0; index < sources.length; index += 2) {
 }
 await mkdir("data", { recursive: true });
 await writeFile("data/public-channel-check.json", JSON.stringify({ checkedAt: new Date().toISOString(), telegramSent: false, results }, null, 2));
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const lines = results.map(item => {
+    const pdf = item.pdf as { pages: number; bytes: number } | undefined;
+    return `| ${item.broker || item.source} | ${item.status} | ${item.reports || 0} | ${pdf ? `${pdf.pages}쪽 / ${pdf.bytes} bytes` : "미확인"} |`;
+  });
+  await appendFile(process.env.GITHUB_STEP_SUMMARY, [
+    "## 공개 채널 원문 검증", "", "텔레그램 발송 없이 목록과 PDF 전체 다운로드·발행사 확인만 검사했습니다.",
+    "접근 시험 자료가 미국 산업 In-Depth 발송 조건을 충족한다는 의미는 아닙니다.", "",
+    "| 증권사 | 결과 | 목록 게시물 | 검증 PDF |", "| --- | --- | ---: | --- |", ...lines, "",
+  ].join("\n"));
+}
+if (results.some(item => item.status !== "verified")) process.exitCode = 1;

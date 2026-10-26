@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parsePublicChannel, collectPublicChannels, resolveChannelPdf, channelPublisherMatches } from "../agent/lib/public-channels.ts";
+import { parsePublicChannel, collectPublicChannels, resolveChannelPdf, channelPublisherMatches, channelPdfCategory } from "../agent/lib/public-channels.ts";
 import { fetchPublicResource } from "../agent/lib/public-http.ts";
 import { classifyIndustry, industryCaption } from "../agent/lib/industry-filter.ts";
 import type { IndustryReport } from "../agent/lib/industry-sources.ts";
@@ -48,6 +48,13 @@ test("산업 투자의견은 기업 티커로 오인하지 않고 기업 TP 표�
   assert.equal(parsePublicChannel(industry, "meritz", "meritz_research").reports[0].category, "산업");
   const company = post("nhis_bio", 2, "[셀트리온(TP 270,000원 유지, Buy 유지)] 불안하면 셀트리온으로<br>자료: <a href='https://m.nhsec.com/c/report'>원문</a>");
   assert.equal(parsePublicChannel(company, "nh", "nhis_bio").reports[0].category, "기업");
+});
+
+test("산업 목차의 기업분석 부록을 문서 유형으로 오인하지 않습니다", () => {
+  const toc = "Summary 3\nPart 1. 그룹 개요\nPart 2. 통신 시장 현황 및 전망\n" + "산업 목차\n".repeat(65) + "기업분석 RFHIC (218410) Buy\n";
+  assert.equal(channelPdfCategory("meritz", "https://home.imeritz.com/report.pdf", "산업", toc), "산업");
+  assert.equal(channelPdfCategory("meritz", "https://home.imeritz.com/report.pdf", "산업", "기업분석\n삼성바이오로직스"), "기업");
+  assert.equal(channelPdfCategory("kiwoom", "https://bbn.kiwoom.com/rfCR12386", "산업", ""), "기업");
 });
 
 test("접속 제한 화면·다른 채널 ID·외부 페이지 이동을 정상 목록으로 숨기지 않습니다", () => {

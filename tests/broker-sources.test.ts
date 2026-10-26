@@ -101,7 +101,7 @@ test("목록의 외부 호스트 이동·로그인 화면·스키마 변경을 �
   assert.throws(() => parseHyundai({ data_list: [], curPage: 1, paging: { totalPages: 5 } }), /LAYOUT/);
 });
 test("공개 PDF 호스트만 허용하며 로그인 경로가 필요한 증권사는 자동 출처로 등록하지 않습니다", () => {
-  assert.equal(DEFAULT_SOURCES.length, 10);
+  assert.equal(DEFAULT_SOURCES.length, 14);
   assert.deepEqual(configuredSources("toss,hana,toss"), ["toss", "hana"]);
   assert.deepEqual(configuredSources("kiwoom,samsung,korea"), ["kiwoom", "samsung", "korea"]);
   for (const s of ["hanwha", "daishin", "unknown", ""]) assert.throws(() => configuredSources(s));

@@ -9,7 +9,7 @@ export const SOURCE_NAMES = {
 export type Source = keyof typeof SOURCE_NAMES;
 // New retrieval paths are supported before they are enabled in production.
 // Activate only after the public list and full PDF have passed a runner check.
-export const DEFAULT_SOURCES: Source[] = ["hankyung", "naver", "hana", "mirae", "toss", "kyobo", "yuanta", "sangsang", "hyundai", "hanyang"];
+export const DEFAULT_SOURCES: Source[] = ["hankyung", "naver", "hana", "mirae", "toss", "kyobo", "yuanta", "sangsang", "hyundai", "hanyang", "kiwoom", "meritz", "nh", "shinhan"];
 export function configuredSources(value = process.env.INDUSTRY_SOURCES): Source[] {
   const names = value === undefined ? DEFAULT_SOURCES : [...new Set(value.split(",").map(s => s.trim()))];
   if (!names.length || names.some(s => !Object.hasOwn(SOURCE_NAMES, s))) {

@@ -51,10 +51,21 @@ export function channelPublisherMatches(source: ChannelSource, text: string): bo
 }
 
 function category(title: string, text: string): string {
-  if (/\b(?:review|earnings|preview)\b|실적\s*(?:리뷰|프리뷰)|목표(?:주가|가)|\bTP\s*[:：]?\s*[\d,]+|\([A-Z]?\d{6}(?:\.(?:KS|KQ))?\)/iu.test(title) ||
+  if (/\b(?:review|earnings|preview)\b|실적\s*(?:리뷰|프리뷰)|목표(?:주가|가)|\bTP\s*[:：]?\s*[\d,]+|\(\s*Not\s*Rated\s*\)|\([A-Z]?\d{6}(?:\.(?:KS|KQ))?\)/iu.test(title) ||
     /\([A-Z.]{1,8}(?:[ .]US)?\)/u.test(title)) return "기업";
   const scope = /산업|업종|섹터|밸류체인|인[\s·-]*뎁스|\bin[ -]*depth\b|심층|반도체|광통신|소재장비|전력|원전|원자력|에너지|태양광|헬스케어|제약|바이오|로봇|우주|항공|데이터센터|소프트웨어|인터넷|통신|건설|조선|자동차|배터리|의료기기/iu;
   return scope.test(title) || /산업|업종|인[\s·-]*뎁스|\bin[ -]*depth\b|심층/iu.test(text.slice(0, 700)) ? "산업" : "기타";
+}
+
+export function channelPdfCategory(source: ChannelSource, pdfUrl: string, current: string, coverText: string): string {
+  // Kiwoom publishes Company Reports under rfCR, separately from rfCI industry
+  // reports. A sector word in a company title must not turn it into an industry.
+  if (source === "kiwoom" && /\/rfCR\d+(?:\.pdf)?(?:$|\?)/u.test(pdfUrl)) return "기업";
+  // Check the opening document type, not a later table-of-contents entry for
+  // the company appendix included in an industry study.
+  const opening = coverText.slice(0, 300);
+  const company = /기업\s*분석(?!부|팀)|\bcompany\s*(?:report|update|initiation)\b/iu.test(opening);
+  return company && !/산업\s*분석|\bindustry\b|\bsector\b/iu.test(opening) ? "기업" : current;
 }
 
 export function parsePublicChannel(html: string, source: ChannelSource, channel: string): {
@@ -97,7 +108,7 @@ export function parsePublicChannel(html: string, source: ChannelSource, channel:
       const sourceUrl = `https://t.me/${channel}/${match[2]}`;
       reports.push({ source, sourceId: `${channel}/${match[2]}/${hash}`, sourceUrl, url: sourceUrl,
         published: kstDay(new Date(rawTime)), broker: config.broker, author: "", code: "",
-        title, category: category(title, text), sector: "공개 산업 리포트", excerpt: text.slice(0, 12000), pdfUrl: u.href,
+        title, category: channelPdfCategory(source, u.href, category(title, text), ""), sector: "공개 산업 리포트", excerpt: text.slice(0, 12000), pdfUrl: u.href,
       });
     }
   }

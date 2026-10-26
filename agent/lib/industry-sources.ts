@@ -4,7 +4,7 @@ import { compact, parseHankyung, MAX_TELEGRAM_PDF_BYTES } from "./report-bot.ts"
 import type { Report } from "./report-bot.ts";
 import { collectBrokerSource, resolveBrokerPdf } from "./broker-sources.ts";
 import type { Source } from "./source-config.ts";
-import { PUBLIC_CHANNELS, isChannelSource, collectPublicChannels, resolveChannelPdf, channelPublisherMatches } from "./public-channels.ts";
+import { PUBLIC_CHANNELS, isChannelSource, collectPublicChannels, resolveChannelPdf, channelPublisherMatches, channelPdfCategory } from "./public-channels.ts";
 import { fetchPublicResource } from "./public-http.ts";
 
 export type { Source } from "./source-config.ts";
@@ -143,7 +143,7 @@ export async function inspectPdf(report: IndustryReport, fetcher: typeof fetch =
     // Publisher logos can be images on the cover. The final compliance pages
     // often contain the text identity; still require the matching official host.
     if (isChannelSource(r.source) && !channelPublisherMatches(r.source, analysisText)) throw new Error("CHANNEL_ISSUER: PDF 본문에서 해당 증권사 발행을 확인하지 못했습니다.");
-    const channelCompany = isChannelSource(r.source) && /기업\s*분석(?!부|팀)|\bcompany\s*(?:report|update|initiation)\b/iu.test(coverText.slice(0, 1400)) && !/산업\s*분석|\bindustry\b|\bsector\b/iu.test(coverText.slice(0, 1400));
-    return { ...r, ...(channelCompany ? { category: "기업" } : {}), pages: info.total, coverText, analysisText, pdfHash, pdfBytes };
+    const category = isChannelSource(r.source) ? channelPdfCategory(r.source, next, r.category, coverText) : r.category;
+    return { ...r, category, pages: info.total, coverText, analysisText, pdfHash, pdfBytes };
   } finally { await parser.destroy(); }
 }
