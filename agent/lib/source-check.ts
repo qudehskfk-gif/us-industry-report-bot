@@ -20,6 +20,7 @@ const results = await Promise.allSettled(sources.map(async source => {
       candidates.find(r => /AI|미국|우주|반도체/iu.test(r.title)) || candidates[0];
     let pdf;
     const pdfErrors: { id: string; error: string }[] = [];
+    if (inspect && !candidate) throw new Error("PDF_CANDIDATE: 다운로드할 산업 원문 후보가 없어 PDF 검증을 완료하지 못했습니다.");
     if (inspect && candidate) {
       const attempts = [candidate, ...candidates.filter(r => r.sourceId !== candidate.sourceId)].slice(0, 3);
       for (const item of attempts) {

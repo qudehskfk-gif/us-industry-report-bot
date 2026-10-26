@@ -4,6 +4,7 @@ export const SOURCE_NAMES = {
   yuanta: "유안타증권", sangsang: "상상인증권", hyundai: "현대차증권", hanyang: "한양증권",
   kiwoom: "키움증권 공개채널", meritz: "메리츠증권 공개채널", korea: "한국투자증권 공개채널",
   samsung: "삼성증권 공개채널", sk: "SK증권 공개채널", nh: "NH투자증권 공개채널",
+  shinhan: "신한투자증권 공개채널",
 } as const;
 export type Source = keyof typeof SOURCE_NAMES;
 // New retrieval paths are supported before they are enabled in production.
@@ -12,7 +13,7 @@ export const DEFAULT_SOURCES: Source[] = ["hankyung", "naver", "hana", "mirae", 
 export function configuredSources(value = process.env.INDUSTRY_SOURCES): Source[] {
   const names = value === undefined ? DEFAULT_SOURCES : [...new Set(value.split(",").map(s => s.trim()))];
   if (!names.length || names.some(s => !Object.hasOwn(SOURCE_NAMES, s))) {
-    throw new Error(`INDUSTRY_SOURCES 지원 출처: ${DEFAULT_SOURCES.join(",")}`);
+    throw new Error(`INDUSTRY_SOURCES 지원 출처: ${Object.keys(SOURCE_NAMES).join(",")}`);
   }
   return names as Source[];
 }

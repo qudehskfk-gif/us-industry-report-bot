@@ -13,8 +13,8 @@ for (let index = 0; index < sources.length; index += 2) {
     try {
       const list = await collectSource(source, { maxPages: 2 });
       const priority = [...list.reports].sort((a, b) => {
-        const score = (r: typeof a) => classifyIndustry(r).status === "eligible" ? 0 : r.category === "산업" && classifyIndustry(r).status !== "excluded" ? 1 : 2;
-        return score(a) - score(b);
+        const score = (r: typeof a) => classifyIndustry(r).status === "eligible" ? 0 : r.category === "산업" && /인[\s·-]*뎁스|\bin[ -]*depth\b|심층/iu.test(r.excerpt || "") ? 1 : r.category === "산업" && classifyIndustry(r).status !== "excluded" ? 2 : 3;
+        return score(a) - score(b) || b.published.localeCompare(a.published);
       });
       let pdf: Record<string, unknown> | undefined;
       const errors: { id: string; error: string }[] = [];

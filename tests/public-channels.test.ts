@@ -43,6 +43,13 @@ test("개별 기업과 Weekly 자료는 공개 채널에서도 발송 후보에�
   assert.equal(classifyIndustry(r).status, "excluded");
 });
 
+test("산업 투자의견은 기업 티커로 오인하지 않고 기업 TP 표기는 구분합니다", () => {
+  const industry = post("meritz_research", 2, "반도체(Overweight) - 산업 In-Depth<br>자료: <a href='https://buly.kr/sector'>원문</a>");
+  assert.equal(parsePublicChannel(industry, "meritz", "meritz_research").reports[0].category, "산업");
+  const company = post("nhis_bio", 2, "[셀트리온(TP 270,000원 유지, Buy 유지)] 불안하면 셀트리온으로<br>자료: <a href='https://m.nhsec.com/c/report'>원문</a>");
+  assert.equal(parsePublicChannel(company, "nh", "nhis_bio").reports[0].category, "기업");
+});
+
 test("접속 제한 화면·다른 채널 ID·외부 페이지 이동을 정상 목록으로 숨기지 않습니다", () => {
   assert.throws(() => parsePublicChannel("<title>Site Unavailable</title>", "korea", "KISemicon"), /접속 제한/);
   assert.throws(() => parsePublicChannel(post("OtherChannel"), "korea", "KISemicon"), /게시물 ID/);
@@ -84,6 +91,19 @@ test("PDF의 발행사 확인은 공개 채널 이름과 별도로 검사합니�
   assert.equal(channelPublisherMatches("korea", "Korea Investment & Securities Research"), true);
   assert.equal(channelPublisherMatches("korea", "Example foreign broker research"), false);
   assert.equal(channelPublisherMatches("kiwoom", "키움증권 리서치센터"), true);
+  assert.equal(channelPublisherMatches("shinhan", "Shinhan Securities Research"), true);
+});
+
+test("공개 배포된 신한 PDF 링크는 HTTPS로 요청하고 개별 기업 분류를 유지합니다", async () => {
+  const html = post("shinhanresearch", 1, "『CJ CGV (079160.KS) - 3Q26 Review』<br>※ 원문 확인: <a href='http://bbs2.shinhansec.com/board/message/file.pdf.do?attachmentId=354498'>원문</a>");
+  const row = parsePublicChannel(html, "shinhan", "shinhanresearch").reports[0];
+  assert.match(row.pdfUrl!, /^https:\/\/bbs2\.shinhansec\.com\//);
+  assert.equal(classifyIndustry(row).status, "excluded");
+  const result = await resolveChannelPdf(row, async url => {
+    assert.match(String(url), /^https:\/\/bbs2\.shinhansec\.com\//);
+    return new Response("%PDF-test", { headers: { "content-type": "application/pdf" } });
+  });
+  assert.equal(result.pdfUrl, row.pdfUrl);
 });
 
 test("일시적인 공개 조회 연결 오류는 한 번만 다시 요청합니다", async () => {

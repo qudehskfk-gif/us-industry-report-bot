@@ -140,7 +140,9 @@ export async function inspectPdf(report: IndustryReport, fetcher: typeof fetch =
     const text = await parser.getText({ partial });
     const coverText = text.pages.filter(page => page.num <= 3).map(page => page.text).join("\n").slice(0, 16000);
     const analysisText = text.pages.map(page => page.text).join("\n\f\n").slice(0, 400000);
-    if (isChannelSource(r.source) && !channelPublisherMatches(r.source, coverText)) throw new Error("CHANNEL_ISSUER: PDF 앞부분에서 해당 증권사 발행을 확인하지 못했습니다.");
+    // Publisher logos can be images on the cover. The final compliance pages
+    // often contain the text identity; still require the matching official host.
+    if (isChannelSource(r.source) && !channelPublisherMatches(r.source, analysisText)) throw new Error("CHANNEL_ISSUER: PDF 본문에서 해당 증권사 발행을 확인하지 못했습니다.");
     const channelCompany = isChannelSource(r.source) && /기업\s*분석(?!부|팀)|\bcompany\s*(?:report|update|initiation)\b/iu.test(coverText.slice(0, 1400)) && !/산업\s*분석|\bindustry\b|\bsector\b/iu.test(coverText.slice(0, 1400));
     return { ...r, ...(channelCompany ? { category: "기업" } : {}), pages: info.total, coverText, analysisText, pdfHash, pdfBytes };
   } finally { await parser.destroy(); }

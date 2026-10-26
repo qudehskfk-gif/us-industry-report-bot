@@ -9,10 +9,11 @@ import type { IndustryReport, SourceResult } from "./industry-sources.ts";
 export const PUBLIC_CHANNELS = {
   kiwoom: { broker: "키움증권", channels: ["KiwoomResearch"], hosts: ["bbn.kiwoom.com", "invest.kiwoom.com", "www1.kiwoom.com"] },
   meritz: { broker: "메리츠증권", channels: ["meritz_research"], hosts: ["home.imeritz.com", "www.imeritz.com"] },
-  korea: { broker: "한국투자증권", channels: ["KISemicon", "enc210406"], hosts: ["file.truefriend.com", "www.truefriend.com", "research.truefriend.com"] },
+  korea: { broker: "한국투자증권", channels: ["KISemicon", "enc210406"], hosts: ["file.truefriend.com", "www.truefriend.com", "research.truefriend.com", "securities.koreainvestment.com", "research.koreainvestment.com"] },
   samsung: { broker: "삼성증권", channels: ["jw_tech"], hosts: ["www.samsungpop.com", "english.samsungpop.com"] },
-  sk: { broker: "SK증권", channels: ["sksresearch"], hosts: ["www.sks.co.kr", "sks.co.kr", "research.sks.co.kr"] },
+  sk: { broker: "SK증권", channels: ["sksresearch", "skitteam"], hosts: ["www.sks.co.kr", "sks.co.kr", "research.sks.co.kr"] },
   nh: { broker: "NH투자증권", channels: ["nhis_bio"], hosts: ["m.nhsec.com", "m.nhqv.com", "download.nhqv.com", "www.nhsec.com"] },
+  shinhan: { broker: "신한투자증권", channels: ["shinhanresearch"], hosts: ["bbs2.shinhansec.com", "bbs2.shinhaninvest.com", "file.shinhansec.com"] },
 } as const;
 export type ChannelSource = keyof typeof PUBLIC_CHANNELS;
 const shorteners = new Set(["bit.ly", "buly.kr", "han.gl", "vo.la", "tinyurl.com", "zrr.kr", "naver.me"]);
@@ -32,7 +33,7 @@ function publicLink(value: string, source: ChannelSource): URL {
 
 function postTitle(text: string): string {
   const lines = text.split(/\n/u).map(compact).filter(Boolean);
-  const useful = lines.map(line => line.replace(/^[📮\s]+/u, "").replace(/^\[(?:키움|메리츠|한투|삼성|SK|NH|한국투자)[^\]]*\]\s*/iu, ""))
+  const useful = lines.map(line => line.replace(/^[\p{Extended_Pictographic}\uFE0F\s]+/u, "").replace(/^\[(?:키움|메리츠|한투|삼성|SK|NH|한국투자|신한)[^\]]*\]\s*/iu, ""))
     .filter(line => line && !/^(?:Analyst\b|안녕|텔레그램|https?:\/\/|감사합니다|자료\s*(?:링크)?\s*[:：])/iu.test(line) && !/^\d{4}[./-]\s*\d{1,2}[./-]\s*\d{1,2}\s*(?:\([^)]*\))?$/u.test(line));
   return (useful[0] || lines[0] || "공개 리포트").replace(/^[▶️■★☆🌏\s]+/u, "").slice(0, 250);
 }
@@ -44,12 +45,14 @@ export function channelPublisherMatches(source: ChannelSource, text: string): bo
     samsung: /삼성증권|samsung\s*(?:securities|research)/iu,
     sk: /SK\s*증권|SK\s*(?:securities|research)/iu,
     nh: /NH\s*투자증권|NH\s*(?:investment|securities|research)/iu,
+    shinhan: /신한\s*(?:투자증권|금융투자)|shinhan/iu,
   };
   return names[source].test(text);
 }
 
 function category(title: string, text: string): string {
-  if (/\b(?:review|earnings|preview)\b|실적\s*(?:리뷰|프리뷰)|목표(?:주가|가)|\([A-Z]?\d{6}\)|\([A-Z.]{1,10}(?:\.US)?\)/iu.test(title)) return "기업";
+  if (/\b(?:review|earnings|preview)\b|실적\s*(?:리뷰|프리뷰)|목표(?:주가|가)|\bTP\s*[:：]?\s*[\d,]+|\([A-Z]?\d{6}(?:\.(?:KS|KQ))?\)/iu.test(title) ||
+    /\([A-Z.]{1,8}(?:[ .]US)?\)/u.test(title)) return "기업";
   const scope = /산업|업종|섹터|밸류체인|인[\s·-]*뎁스|\bin[ -]*depth\b|심층|반도체|광통신|소재장비|전력|원전|원자력|에너지|태양광|헬스케어|제약|바이오|로봇|우주|항공|데이터센터|소프트웨어|인터넷|통신|건설|조선|자동차|배터리|의료기기/iu;
   return scope.test(title) || /산업|업종|인[\s·-]*뎁스|\bin[ -]*depth\b|심층/iu.test(text.slice(0, 700)) ? "산업" : "기타";
 }
