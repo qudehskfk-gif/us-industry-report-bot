@@ -5,7 +5,7 @@ import type { Report } from "./report-bot.ts";
 import { collectBrokerSource, resolveBrokerPdf } from "./broker-sources.ts";
 import type { Source } from "./source-config.ts";
 import { PUBLIC_CHANNELS, isChannelSource, collectPublicChannels, resolveChannelPdf, channelPublisherMatches, channelPdfCategory } from "./public-channels.ts";
-import { fetchPublicResource } from "./public-http.ts";
+import { fetchPublicResource, readPublicBytes } from "./public-http.ts";
 
 export type { Source } from "./source-config.ts";
 export type IndustryReport = Report & {
@@ -113,9 +113,11 @@ export async function inspectPdf(report: IndustryReport, fetcher: typeof fetch =
   if (!r.pdfUrl) throw new Error("PDF_MISSING: 원문 PDF 링크가 없습니다.");
   let next = checkedPdfUrl(r.pdfUrl);
   let response: Response | undefined;
+  let bytes: Buffer = Buffer.alloc(0);
   // Validate every redirect target; do not send cookies or credentials to report hosts.
   for (let i = 0; i < 5; i++) {
-    response = await fetchPublicResource(next, { headers, redirect: "manual" }, { fetcher, timeoutMs: 90000 });
+    const downloaded = await readPublicBytes(next, { headers, redirect: "manual" }, { fetcher, timeoutMs: 90000, maxBytes: MAX_TELEGRAM_PDF_BYTES, sizeError: "PDF_SIZE: 텔레그램 파일 한도 50 MB를 초과했습니다." });
+    response = downloaded.response; bytes = downloaded.bytes;
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location"); if (!location) throw new Error("PDF_REDIRECT");
       await response.body?.cancel(); next = checkedPdfUrl(new URL(location, next).href); continue;
@@ -123,12 +125,6 @@ export async function inspectPdf(report: IndustryReport, fetcher: typeof fetch =
     break;
   }
   if (!response?.ok || !response.body) throw new Error(`PDF_HTTP: ${response?.status}`);
-  const chunks: Uint8Array[] = []; let size = 0;
-  for await (const chunk of response.body) {
-    size += chunk.length; if (size > MAX_TELEGRAM_PDF_BYTES) throw new Error("PDF_SIZE: 텔레그램 파일 한도 50 MB를 초과했습니다.");
-    chunks.push(chunk);
-  }
-  const bytes = Buffer.concat(chunks);
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("PDF_FORMAT: PDF 원문이 아닙니다.");
   const pdfBytes = new Uint8Array(bytes);
   const pdfHash = createHash("sha256").update(pdfBytes).digest("hex");
