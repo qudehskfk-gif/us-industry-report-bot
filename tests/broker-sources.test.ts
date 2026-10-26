@@ -103,7 +103,8 @@ test("목록의 외부 호스트 이동·로그인 화면·스키마 변경을 �
 test("공개 PDF 호스트만 허용하며 로그인 경로가 필요한 증권사는 자동 출처로 등록하지 않습니다", () => {
   assert.equal(DEFAULT_SOURCES.length, 10);
   assert.deepEqual(configuredSources("toss,hana,toss"), ["toss", "hana"]);
-  for (const s of ["hanwha", "daishin", "samsung", "unknown", ""]) assert.throws(() => configuredSources(s));
+  assert.deepEqual(configuredSources("kiwoom,samsung,korea"), ["kiwoom", "samsung", "korea"]);
+  for (const s of ["hanwha", "daishin", "unknown", ""]) assert.throws(() => configuredSources(s));
   for (const url of ["https://home-files.tossinvest.com/a.pdf", "https://file.hanaw.com/a.pdf", "https://file.myasset.com/a.pdf"]) assert.equal(checkedPdfUrl(url), url);
   for (const url of ["http://home-files.tossinvest.com/a.pdf", "https://u:p@home-files.tossinvest.com/a.pdf", "https://home-files.tossinvest.com:8443/a.pdf", "https://home-files.tossinvest.com.evil.test/a.pdf"]) assert.throws(() => checkedPdfUrl(url), /PDF_URL/);
 });

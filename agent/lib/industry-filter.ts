@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { compact } from "./report-bot.ts";
 import type { IndustryReport } from "./industry-sources.ts";
 import { SOURCE_NAMES } from "./source-config.ts";
+import { isChannelSource } from "./public-channels.ts";
 
 export type Decision = { status: "eligible" | "excluded" | "review"; reason: string };
 const depth = /\bin[\s\-‐‑–—_]*depth\b|\bdeep[\s\-_]*dive\b|인[\s·\-]*뎁스|딥\s*다이브|심층(?:\s*(?:분석|리포트|보고서|연구))?/iu;
@@ -45,7 +46,7 @@ export function industryCaption(report: IndustryReport, decision: Decision, summ
     "🇺🇸 국내 증권사 · 미국 산업 In-Depth",
     `산업: ${clip(compact(report.sector || "미분류"), 50)}`,
     `제목: ${clip(compact(report.title), 330)}`,
-    `증권사: ${clip(compact(report.broker), 60)} | 발간일: ${report.published}`,
+    `증권사: ${clip(compact(report.broker), 60)} | ${isChannelSource(report.source) ? "게시일" : "발간일"}: ${report.published}`,
     `등록사이트: ${SOURCE_NAMES[report.source]}`,
     ...(report.pages ? [`분량: ${report.pages}쪽`] : []),
     `선별 근거: ${clip(compact(decision.reason), 110)}`,

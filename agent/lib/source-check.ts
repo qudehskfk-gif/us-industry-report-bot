@@ -4,6 +4,7 @@ import { collectSource, inspectPdf } from "./industry-sources.ts";
 import { configuredSources, SOURCE_NAMES } from "./source-config.ts";
 import { classifyIndustry } from "./industry-filter.ts";
 import { classifyUsFocus } from "./industry-focus.ts";
+import { publicError } from "./public-http.ts";
 
 // Read-only preflight: this module has no Telegram sender or live delivery path.
 const requested = process.argv.find(a => a.startsWith("--sources="))?.slice(10);
@@ -27,7 +28,7 @@ const results = await Promise.allSettled(sources.map(async source => {
           pdf = { id: original.sourceId, title: original.title, pages: original.pages, bytes: original.pdfBytes?.length, sha256: original.pdfHash,
             depth: classifyIndustry(original), usFocus: classifyUsFocus(original) };
           break;
-        } catch (error) { pdfErrors.push({ id: item.sourceId, error: error instanceof Error ? error.message : "PDF 확인 실패" }); }
+        } catch (error) { pdfErrors.push({ id: item.sourceId, error: publicError(error) }); }
       }
       if (!pdf) throw new Error(`PDF 확인 실패 ${pdfErrors.length}건: ${pdfErrors[0]?.error}`);
     }
@@ -35,7 +36,7 @@ const results = await Promise.allSettled(sources.map(async source => {
       industryReports: result.reports.filter(r => r.category === "산업").length, moreHistory: result.truncated, ...(pdf ? { pdf } : {}), ...(pdfErrors.length ? { pdfErrors } : {}) };
     console.log(JSON.stringify(value)); return value;
   } catch (error) {
-    const value = { source, name: SOURCE_NAMES[source], checkedAt, status: "failed", error: error instanceof Error ? error.message : "수집 검증 실패" };
+    const value = { source, name: SOURCE_NAMES[source], checkedAt, status: "failed", error: publicError(error) };
     console.log(JSON.stringify(value)); return value;
   }
 }));

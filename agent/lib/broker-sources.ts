@@ -3,8 +3,9 @@ import { compact } from "./report-bot.ts";
 import { SOURCE_NAMES } from "./source-config.ts";
 import type { Source } from "./source-config.ts";
 import type { IndustryReport, SourceResult } from "./industry-sources.ts";
+import { fetchPublicResource } from "./public-http.ts";
 
-export type BrokerSource = Exclude<Source, "hankyung" | "naver">;
+export type BrokerSource = Extract<Source, "hana" | "mirae" | "toss" | "kyobo" | "yuanta" | "sangsang" | "hyundai" | "hanyang">;
 type Page = { reports: IndustryReport[]; hasNext: boolean; nextUrl?: string };
 const urls: Record<BrokerSource, string> = {
   hana: "https://www.hanaw.com/main/research/research/list.cmd?pid=8&cid=2",
@@ -210,10 +211,10 @@ async function read(source: BrokerSource, address: string, fetcher: typeof fetch
   for (let redirect = 0; redirect < 5; redirect++) {
     const u = new URL(next);
     if (u.protocol !== "https:" || u.origin !== expected.origin || u.username || u.password) throw new Error("SOURCE_URL: 허용된 출처가 아닙니다.");
-    const response = await fetcher(u.href, { ...init, headers: { ...headers, ...init.headers }, redirect: "manual", signal: AbortSignal.timeout(25000) });
+    const response = await fetchPublicResource(u.href, { ...init, headers: { ...headers, ...init.headers }, redirect: "manual" }, { fetcher, retrySafe: true });
     if (response.status >= 300 && response.status < 400) {
       const target = response.headers.get("location"); if (!target) throw new Error("SOURCE_REDIRECT");
-      next = new URL(target, next).href; continue;
+      await response.body?.cancel(); next = new URL(target, next).href; continue;
     }
     if (!response.ok || !response.body) throw new Error(`${source.toUpperCase()}_HTTP: ${response.status}`);
     const chunks: Uint8Array[] = []; let size = 0;

@@ -4,6 +4,8 @@ import { compact, parseHankyung, MAX_TELEGRAM_PDF_BYTES } from "./report-bot.ts"
 import type { Report } from "./report-bot.ts";
 import { collectBrokerSource, resolveBrokerPdf } from "./broker-sources.ts";
 import type { Source } from "./source-config.ts";
+import { PUBLIC_CHANNELS, isChannelSource, collectPublicChannels, resolveChannelPdf, channelPublisherMatches } from "./public-channels.ts";
+import { fetchPublicResource } from "./public-http.ts";
 
 export type { Source } from "./source-config.ts";
 export type IndustryReport = Report & {
@@ -44,6 +46,7 @@ export function parseNaverPage(payload: unknown): { reports: IndustryReport[]; h
 export async function collectSource(source: Source, options: {
   known?: Set<string>; maxPages?: number; fetcher?: typeof fetch;
 } = {}): Promise<SourceResult> {
+  if (isChannelSource(source)) return collectPublicChannels(source, options);
   if (source !== "hankyung" && source !== "naver") return collectBrokerSource(source, options);
   const fetcher = options.fetcher || fetch;
   const known = options.known || new Set<string>();
@@ -55,14 +58,14 @@ export async function collectSource(source: Source, options: {
     let hasNext = true;
     if (source === "naver") {
       const u = new URL(API); u.searchParams.set("index", String(page)); u.searchParams.set("size", "20");
-      const response = await fetcher(u.href, { headers, signal: AbortSignal.timeout(20000) });
+      const response = await fetchPublicResource(u.href, { headers }, { fetcher, timeoutMs: 20000 });
       if (!response.ok) throw new Error(`NAVER_HTTP: ${response.status}`);
       const data = parseNaverPage(await response.json()); rows = data.reports; hasNext = data.hasNext;
     } else {
       const template = process.env.HANKYUNG_INDUSTRY_URL_TEMPLATE || "https://consensus.hankyung.com/analysis/list?skinType=industry&now_page={page}";
       const u = new URL(template.replace("{page}", String(page + 1)));
       if (u.protocol !== "https:" || u.hostname !== "consensus.hankyung.com") throw new Error("HANKYUNG_URL: 허용된 목록 주소가 아닙니다.");
-      const response = await fetcher(u.href, { headers, signal: AbortSignal.timeout(20000) });
+      const response = await fetchPublicResource(u.href, { headers }, { fetcher, timeoutMs: 20000 });
       if (!response.ok) throw new Error(`HANKYUNG_HTTP: ${response.status}`);
       rows = parseHankyung(await response.text(), "산업").filter(r => r.category === "산업").map(r => ({
         ...r, source, sourceUrl: r.url, pdfUrl: r.url, sector: "미분류", code: "",
@@ -78,12 +81,16 @@ export async function collectSource(source: Source, options: {
 }
 
 export async function resolvePdf(report: IndustryReport, fetcher: typeof fetch = fetch): Promise<IndustryReport> {
+  if (isChannelSource(report.source)) {
+    const resolved = await resolveChannelPdf(report, fetcher);
+    return { ...resolved, pdfUrl: checkedPdfUrl(resolved.pdfUrl!) };
+  }
   if (report.pdfUrl) return { ...report, pdfUrl: checkedPdfUrl(report.pdfUrl) };
   if (report.source !== "naver") {
     const resolved = await resolveBrokerPdf(report, fetcher);
     return resolved.pdfUrl ? { ...resolved, pdfUrl: checkedPdfUrl(resolved.pdfUrl) } : resolved;
   }
-  const response = await fetcher(`${API}/${report.sourceId}`, { headers, signal: AbortSignal.timeout(20000) });
+  const response = await fetchPublicResource(`${API}/${report.sourceId}`, { headers }, { fetcher, timeoutMs: 20000 });
   if (!response.ok) throw new Error(`NAVER_DETAIL_HTTP: ${response.status}`);
   const data = await response.json() as { nid?: string; attachUrl?: string; title?: string };
   if (String(data.nid) !== report.sourceId) throw new Error("NAVER_DETAIL_LAYOUT: 요청한 리포트와 ID가 다릅니다.");
@@ -95,7 +102,8 @@ export function checkedPdfUrl(value: string): string {
   const allowed = ["consensus.hankyung.com", "www.hankyung.com", "stock.pstatic.net", "upload.stock.naver.com",
     "www.hanaw.com", "file.hanaw.com", "securities.miraeasset.com", "home-files.tossinvest.com",
     "m.iprovest.com", "www.iprovest.com", "www.myasset.com", "file.myasset.com",
-    "www.sangsanginib.com", "www.hmsec.com", "www.hygood.co.kr"];
+    "www.sangsanginib.com", "www.hmsec.com", "www.hygood.co.kr",
+    ...Object.values(PUBLIC_CHANNELS).flatMap(config => [...config.hosts])];
   if (u.protocol !== "https:" || u.username || u.password || u.port || !allowed.includes(u.hostname)) throw new Error("PDF_URL: 허용된 원문 호스트가 아닙니다.");
   return u.href;
 }
@@ -107,10 +115,10 @@ export async function inspectPdf(report: IndustryReport, fetcher: typeof fetch =
   let response: Response | undefined;
   // Validate every redirect target; do not send cookies or credentials to report hosts.
   for (let i = 0; i < 5; i++) {
-    response = await fetcher(next, { headers, redirect: "manual", signal: AbortSignal.timeout(45000) });
+    response = await fetchPublicResource(next, { headers, redirect: "manual" }, { fetcher, timeoutMs: 90000 });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location"); if (!location) throw new Error("PDF_REDIRECT");
-      next = checkedPdfUrl(new URL(location, next).href); continue;
+      await response.body?.cancel(); next = checkedPdfUrl(new URL(location, next).href); continue;
     }
     break;
   }
@@ -132,6 +140,8 @@ export async function inspectPdf(report: IndustryReport, fetcher: typeof fetch =
     const text = await parser.getText({ partial });
     const coverText = text.pages.filter(page => page.num <= 3).map(page => page.text).join("\n").slice(0, 16000);
     const analysisText = text.pages.map(page => page.text).join("\n\f\n").slice(0, 400000);
-    return { ...r, pages: info.total, coverText, analysisText, pdfHash, pdfBytes };
+    if (isChannelSource(r.source) && !channelPublisherMatches(r.source, coverText)) throw new Error("CHANNEL_ISSUER: PDF 앞부분에서 해당 증권사 발행을 확인하지 못했습니다.");
+    const channelCompany = isChannelSource(r.source) && /기업\s*분석(?!부|팀)|\bcompany\s*(?:report|update|initiation)\b/iu.test(coverText.slice(0, 1400)) && !/산업\s*분석|\bindustry\b|\bsector\b/iu.test(coverText.slice(0, 1400));
+    return { ...r, ...(channelCompany ? { category: "기업" } : {}), pages: info.total, coverText, analysisText, pdfHash, pdfBytes };
   } finally { await parser.destroy(); }
 }
