@@ -1,0 +1,21 @@
+name: Verify public retrieval reliability
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Verify complete original PDFs without sending
+        run: npm run sources:check -- --sources=hana,sangsang,hanyang --pdf
