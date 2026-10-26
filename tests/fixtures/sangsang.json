@@ -1,0 +1,30 @@
+[
+  {
+    "getStarCnt": 0,
+    "getNoticeList": [
+      {
+        "HIT": 104,
+        "STAR_YN": "N",
+        "STOCK_CD": "B3520",
+        "REGDT": "2026.10.12",
+        "STOCK_NM": "의료기기",
+        "NT_NO": 899,
+        "TITLE": "미용의료기기, 의료AI 중심으로",
+        "FILE_YN": "Y",
+        "NM": "리서치센터"
+      },
+      {
+        "HIT": 60,
+        "STAR_YN": "N",
+        "STOCK_CD": "B4010",
+        "REGDT": "2026.10.12",
+        "STOCK_NM": "은행",
+        "NT_NO": 898,
+        "TITLE": "[은행] 금리 수혜주라는 착각",
+        "FILE_YN": "Y",
+        "NM": "research"
+      }
+    ],
+    "getCount": 875
+  }
+]

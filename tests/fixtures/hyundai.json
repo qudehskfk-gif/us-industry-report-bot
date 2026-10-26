@@ -1,0 +1,62 @@
+{
+  "data_list": [
+    {
+      "REG_TIME": "074151",
+      "TOTAL_VISITED": 9,
+      "SERIAL_NO": 36540,
+      "REG_DATE": "20261026",
+      "SUBJECT": "IPARK현대산업개발(294870) - 지속될 자체-외주 Mix 개선 ",
+      "UPLOAD_FILE1": "20261023162042470_ko.pdf",
+      "MENU_SUBJECT": "Conmpany Report",
+      "NAME": "신동현",
+      "MENU_CODE": 201,
+      "CONTENTS": "<span style=\"font-size: 12px; font-family: 돋움; color: #4d4d4d; text-align: justify; line-height: 1"
+    },
+    {
+      "REG_TIME": "075110",
+      "TOTAL_VISITED": 25,
+      "SERIAL_NO": 36536,
+      "REG_DATE": "20261023",
+      "SUBJECT": "삼성E&A(028050) - 진짜 서프라이즈는 '지속가능성' ",
+      "UPLOAD_FILE1": "20261022213729347_ko.pdf",
+      "MENU_SUBJECT": "Conmpany Report",
+      "NAME": "신동현",
+      "MENU_CODE": 201,
+      "CONTENTS": "<span style=\"font-size: 12px; font-family: 돋움; font-weight: bold; color: blue; line-height: 16pt\">"
+    },
+    {
+      "REG_TIME": "074454",
+      "TOTAL_VISITED": 22,
+      "SERIAL_NO": 36535,
+      "REG_DATE": "20261023",
+      "SUBJECT": "1차금속산업 - 다시, 공급과잉 우려 ",
+      "UPLOAD_FILE1": "20261022174554880_ko.pdf",
+      "MENU_SUBJECT": "Industry Report",
+      "NAME": "박현욱",
+      "MENU_CODE": 202,
+      "CONTENTS": "<span style=\"font-size: 12px; font-family: 돋움; font-weight: bold; color: blue; line-height: 16pt\">"
+    }
+  ],
+  "curPage": 1,
+  "totCount": 15994,
+  "searchStr": "",
+  "paging": {
+    "startPage": 1,
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "existBefore": false,
+    "nextPage": 2,
+    "totalPages": 2000,
+    "endPage": 9,
+    "totalCount": "15994",
+    "existAfter": true
+  }
+}

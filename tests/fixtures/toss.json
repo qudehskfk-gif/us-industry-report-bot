@@ -1,0 +1,47 @@
+{
+  "result": {
+    "list": [
+      {
+        "id": 21460,
+        "type": "INVESTMENT_INFO",
+        "category": {
+          "id": 138,
+          "type": "INVESTMENT_INFO",
+          "categoryName": "인사이트",
+          "categoryDepth": 1,
+          "upperCategory": null,
+          "position": 0,
+          "displayYn": "Y"
+        },
+        "title": "GTC DEEP DIVE - 차세대 컴퓨팅, 추론, 그리고 AI 에이전트",
+        "contents": "<p>작성자: 이영곤, 이지선, 한상원 애널리스트</p><p><br></p><p><strong>01. AI 는 &lsquo;잘 만든 기술&rsquo;에서 &lsquo;많이 쓰이는 산업&rsquo;으로 전환되고 있습니다. </strong></p><p>GTC는 한때 엔비디아 GPU 홍보 행사에 불과했지만, 이제 AI 반도체, 고성능 컴퓨터, 데이터센터, 로보틱스 등 산업 전반의 방향성을 가늠하는 무대가 되고 있습니다. 이는 투자와도 직접적인 관련이 있습니다. 저희가 이번 GTC 2026 현장에서 확인한 핵심 포인트 3가지는 다음과 같습니다. 첫째, AI 산업은 모델 경쟁을 넘어, 생태계와 플랫폼 중심으로 확장될 것입니다. 누구나 다운받아 활용할 수 있게끔 공개되는 &lsquo;오픈 프런티어 모델&rsquo;이 확산되면서, 모델을 빠르고 효율적으로 실행할 수 있는 GPU, 데이터센터, 네트워크의 중요성이 커지고 있습니다. 둘째, AI 수요 확대와 효율 개선은 사용량 증가로 이어져, 메모리 수요도 늘어날 것입니다. 특히 SK하이닉스, 삼성전자의 HBM은 대규모 데이터 처리 환경에서 필수적인 요소로 자리 잡고 있기 때문에 직접적인 수혜를 받을 가능성이 높아 보입니다. 셋째, AI 팩토리 시대를 맞아 인프라 병목 해소가 중요해질 것입니다. 데이터를 더 빠르고 멀리 전달할 수 있고 전력 효율 측면에서도 유리한 광 기반 연결이 대안으로 주목받고 있습니다.&nbsp;</p><p><br></p><p><strong>02. 양자컴퓨팅은 더 이상 먼 미래의 이야기가 아닙니다. </strong></p><p>현장에서 특히 인상적이었던 부분은 양자컴퓨팅이 먼 미래의 이야기가 아니라, 현재 AI 인프라 논의의 연장선 위에 올라와 있다는 점입니다. 엔비디아 내부 디렉터가 직접 양자컴퓨팅 방향성을 설명했고, 관련 내용이 컨퍼런스의 상당한 비중을 차지했습니다. 투자 관점에서 양자컴퓨팅이 주목받는 이유는 지금까지 계산 자체가 어려웠던 문제를 풀 수 있는 가능성을 열어주기 때문입니다. 그럼에도 양자컴퓨팅은 &lsquo;오류가 자주 발생하고 비효율적&rsquo;이라는 이유로 지금껏 상용화되지 못했는데요. 엔비디아는 그동안 쌓아온 노하우로 이러한 단점을 보완하려 합니다. QPU와 GPU를 연결하는 NVQLink, 개발 환경을 제공하는 CUDA-Q, 핵심 병목인 오류 정정과 보정을 자동화하는 Ising 등 양자 하드웨어가 작동하기 위해 반드시 필요한 인프라를 제공하겠다는 것입니다.&nbsp;</p><p><br></p><p><strong>03. &lsquo;학습&rsquo;에서 &lsquo;추론&rsquo;으로, &lsquo;챗봇&",
+        "position": 0,
+        "displayYn": "Y",
+        "displayDt": "2026-05-11T00:00:00",
+        "displayEndDt": null,
+        "author": "myungkyoon.ki",
+        "createdAt": "2026-05-11T19:27:58",
+        "updatedAt": "2026-05-11T19:27:59",
+        "pinned": false,
+        "subTitle": "",
+        "contentImage": "https://home-files.tossinvest.com/files/investment-info/5d772aaa-d25c-46d5-bc2a-e0e26dd6ac6f.pdf",
+        "refLink": "",
+        "files": [
+          {
+            "contentId": 21460,
+            "categoryType": "INVESTMENT_INFO",
+            "fileName": "GTCDeepDive_4rd_Compilation_20260512.pdf",
+            "filePath": "https://home-files.tossinvest.com/files/investment-info/5d772aaa-d25c-46d5-bc2a-e0e26dd6ac6f.pdf",
+            "createdAt": "2026-05-11T19:27:58"
+          }
+        ]
+      }
+    ],
+    "pagingParam": {
+      "page": 0,
+      "size": 10,
+      "totalPageCount": 4,
+      "totalRowSize": 33
+    }
+  }
+}
