@@ -3,7 +3,7 @@ import { compact } from "./report-bot.ts";
 import { SOURCE_NAMES } from "./source-config.ts";
 import type { Source } from "./source-config.ts";
 import type { IndustryReport, SourceResult } from "./industry-sources.ts";
-import { fetchPublicResource } from "./public-http.ts";
+import { readPublicBytes } from "./public-http.ts";
 
 export type BrokerSource = Extract<Source, "hana" | "mirae" | "toss" | "kyobo" | "yuanta" | "sangsang" | "hyundai" | "hanyang">;
 type Page = { reports: IndustryReport[]; hasNext: boolean; nextUrl?: string };
@@ -211,15 +211,12 @@ async function read(source: BrokerSource, address: string, fetcher: typeof fetch
   for (let redirect = 0; redirect < 5; redirect++) {
     const u = new URL(next);
     if (u.protocol !== "https:" || u.origin !== expected.origin || u.username || u.password) throw new Error("SOURCE_URL: 허용된 출처가 아닙니다.");
-    const response = await fetchPublicResource(u.href, { ...init, headers: { ...headers, ...init.headers }, redirect: "manual" }, { fetcher, retrySafe: true });
+    const { response, bytes } = await readPublicBytes(u.href, { ...init, headers: { ...headers, ...init.headers }, redirect: "manual" }, { fetcher, retrySafe: true, maxBytes: 5_000_000, sizeError: "SOURCE_SIZE: 목록 응답이 너무 큽니다." });
     if (response.status >= 300 && response.status < 400) {
       const target = response.headers.get("location"); if (!target) throw new Error("SOURCE_REDIRECT");
       await response.body?.cancel(); next = new URL(target, next).href; continue;
     }
     if (!response.ok || !response.body) throw new Error(`${source.toUpperCase()}_HTTP: ${response.status}`);
-    const chunks: Uint8Array[] = []; let size = 0;
-    for await (const part of response.body) { size += part.length; if (size > 5_000_000) throw new Error("SOURCE_SIZE: 목록 응답이 너무 큽니다."); chunks.push(part); }
-    const bytes = Buffer.concat(chunks);
     const encoding = response.headers.get("content-type")?.match(/charset=([\w-]+)/iu)?.[1] || (source === "mirae" ? "euc-kr" : "utf-8");
     return new TextDecoder(encoding).decode(bytes);
   }
