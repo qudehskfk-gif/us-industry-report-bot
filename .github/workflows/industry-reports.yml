@@ -38,6 +38,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --omit=dev
+      - name: Verify public PDF access without sending (initialization only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_only }}
+        continue-on-error: true
+        run: npm run sources:check -- --pdf
       - name: Restore notification history
         id: history
         env:
