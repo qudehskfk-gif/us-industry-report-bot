@@ -1,0 +1,32 @@
+name: Verify bot code
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent/lib/cloud-once.ts'
+      - 'agent/lib/cloud-schedule.ts'
+      - 'tests/cloud-schedule.test.ts'
+      - '.github/workflows/code-checks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BOT_SEND_ENABLED: 'false'
+      AI_CLASSIFY: 'false'
+      AI_SUMMARY: 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
