@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { classifyIndustry, industryCaption, industryFilename } from "../agent/lib/industry-filter.ts";
+import { classifyIndustry, INDUSTRY_POLICY, industryCaption, industryFilename } from "../agent/lib/industry-filter.ts";
 import { checkedPdfUrl, collectSource, parseNaverPage, resolvePdf, inspectPdf } from "../agent/lib/industry-sources.ts";
 import type { IndustryReport } from "../agent/lib/industry-sources.ts";
 import { IndustryStore } from "../agent/lib/industry-store.ts";
@@ -48,19 +48,24 @@ test("네이버 상세 응답에서 PDF 주소를 확인하고 다른 ID는 거�
   await assert.rejects(resolvePdf(r, async () => Response.json({ nid: "2" })), /NAVER_DETAIL_LAYOUT/);
   assert.throws(() => checkedPdfUrl("http://127.0.0.1/private"), /PDF_URL/);
 });
-test("산업 게시물과 명시적인 심층 표기를 함께 확인합니다", () => {
+test("심층 표기 없이도 10쪽 이상인 산업 보고서를 후보로 인정합니다", () => {
   assert.equal(classifyIndustry(r).status, "eligible");
-  assert.equal(classifyIndustry({ ...r, coverText: "", title: "인뎁스: 전력 산업의 구조 변화" }).status, "eligible");
-  assert.equal(classifyIndustry({ ...r, coverText: "", title: "이차전지 산업 심층분석" }).status, "eligible");
+  assert.equal(classifyIndustry({ ...r, coverText: "일반 산업 보고서", title: "미국 전력 산업의 구조 변화", pages: 10 }).status, "eligible");
+  assert.equal(classifyIndustry({ ...r, coverText: "", title: "이차전지 산업 전망", pages: 100 }).status, "eligible");
 });
 test("개별 기업 In-Depth, 주간 동향, 짧은 코멘트는 제외합니다", () => {
   assert.equal(classifyIndustry({ ...r, category: "기업" }).status, "excluded");
   assert.equal(classifyIndustry({ ...r, coverText: "Company In-Depth Report\n개별 기업의 실적 분석" }).status, "excluded");
   assert.equal(classifyIndustry({ ...r, title: "반도체 Weekly: 업황 점검" }).status, "excluded");
   assert.equal(classifyIndustry({ ...r, title: "자동차 주간 동향" }).status, "excluded");
+  assert.equal(classifyIndustry({ ...r, title: "미국 반도체 Weekly In-Depth", pages: 20 }).status, "excluded");
 });
-test("긴 분량만으로 심층으로 확정하지 않습니다", () => {
-  assert.equal(classifyIndustry({ ...r, pages: 100, coverText: "일반 시장 자료", title: "반도체 자료 모음" }).status, "review");
+test("심층 표기가 있어도 9쪽은 제외하고 확인되지 않은 쪽수는 보류합니다", () => {
+  assert.equal(classifyIndustry({ ...r, pages: 9, title: "미국 반도체 산업 In-Depth" }).status, "excluded");
+  assert.equal(classifyIndustry({ ...r, pages: 10, coverText: "", title: "미국 반도체 전망" }).status, "eligible");
+  for (const pages of [undefined, 0, -1, NaN, Infinity, 10.5]) {
+    assert.equal(classifyIndustry({ ...r, pages }).status, "review");
+  }
 });
 test("처음 가동한 사이트는 현재 목록을 기준점으로 기록합니다", () => {
   const store = new IndustryStore();
@@ -104,14 +109,47 @@ test("PDF 확인 오류는 재시도 대기 상태로 남깁니다", async () =>
     assert.equal(store.pending("labels-v1", 20, Date.now() + 11 * 60 * 1000).length, 1);
   } finally { store.close(); }
 });
-test("유료 AI를 나중에 켜면 표기 불명확 자료를 다시 검토할 수 있습니다", () => {
+test("새 10쪽 정책은 과거 심층 표기 보류를 다시 검사하고 이미 보낸 이력은 유지합니다", async () => {
   const store = new IndustryStore();
   try {
-    store.ingest({ source: "naver", reports: [r], truncated: false }, false);
-    store.save(r, "review", "표기 불명확", "labels-v1");
-    assert.equal(store.pending("labels-v1").length, 0);
-    assert.equal(store.pending("hybrid-v1:model").length, 1);
+    const held = { ...r, title: "미국 반도체 산업 전망", coverText: "산업 구조와 전망", pages: 10 };
+    const sent = { ...r, sourceId: "already-sent", title: "이전에 보낸 미국 산업 자료", pdfHash: "previous-document" };
+    store.ingest({ source: "naver", reports: [held, sent], truncated: false }, false);
+    store.save(held, "review", "심층 표기 미확인", "us-industry-labels-v2");
+    const claim = store.claim(sent); store.mark(claim.id, "sent", "previous-message");
+    store.save(sent, "sent", "이전 전송 성공", "us-industry-labels-v2");
+    assert.equal(store.pending("us-industry-labels-v2").length, 0);
+    const pending = store.pending(INDUSTRY_POLICY);
+    assert.equal(pending.length, 1); assert.equal(pending[0].sourceId, held.sourceId);
+    let sends = 0;
+    const result = await processIndustry(pending, { store, live: true, inspect, sender: async () => String(++sends) });
+    assert.equal(result.sent, 1); assert.equal(sends, 1);
+    assert.equal(store.db.prepare("SELECT message_id FROM industry_deliveries WHERE id=?").get(claim.id)?.message_id, "previous-message");
   } finally { store.close(); }
+});
+
+test("표기와 쪽수가 없는 신규 자료도 PDF 검사 후 10쪽이면 발송합니다", async () => {
+  const store = new IndustryStore(); let inspected = 0; let sends = 0;
+  const fresh = { ...r, title: "미국 반도체 산업 전망", coverText: undefined, pages: undefined };
+  try {
+    store.ingest({ source: "naver", reports: [fresh], truncated: false }, false);
+    const result = await processIndustry([fresh], { store, live: true,
+      inspect: async value => { inspected++; return { ...value, coverText: "Industry report", pages: 10, pdfBytes }; },
+      sender: async () => String(++sends) });
+    assert.equal(inspected, 1); assert.equal(result.sent, 1); assert.equal(sends, 1);
+  } finally { store.close(); }
+});
+
+test("AI가 허용해도 10쪽 미만 또는 쪽수 미확인 자료는 보내지 않습니다", async () => {
+  for (const pages of [9, undefined]) {
+    const store = new IndustryStore(); let sends = 0; let aiCalls = 0;
+    try {
+      const result = await processIndustry([{ ...r, pages }], { store, live: true, inspect,
+        classifyAi: async () => { aiCalls++; return { status: "eligible", reason: "허용" }; },
+        sender: async () => String(++sends) });
+      assert.equal(sends, 0); assert.equal(result.sent, 0); assert.equal(aiCalls, 0);
+    } finally { store.close(); }
+  }
 });
 test("명시적인 전송 거절은 재시도하고 결과 불명확 전송은 보류합니다", async () => {
   const store = new IndustryStore();
