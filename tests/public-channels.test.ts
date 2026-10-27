@@ -4,6 +4,8 @@ import { parsePublicChannel, collectPublicChannels, resolveChannelPdf, channelPu
 import { fetchPublicResource } from "../agent/lib/public-http.ts";
 import { classifyIndustry, industryCaption } from "../agent/lib/industry-filter.ts";
 import type { IndustryReport } from "../agent/lib/industry-sources.ts";
+import { processIndustry } from "../agent/lib/industry-bot.ts";
+import { IndustryStore } from "../agent/lib/industry-store.ts";
 
 function post(channel = "KISemicon", id = 4742, content = "[한투증권 김정찬] 광통신: 더 가까이, 더 멀리<br>이번 인뎁스에서 미국 광통신 산업과 레이저칩 병목을 분석합니다.<br>자료: <a href='https://zrr.kr/report'>원문</a>") {
   return `<div class='tgme_widget_message' data-post='${channel}/${id}'><div class='tgme_widget_message_text'>${content}</div><a class='tgme_widget_message_date'><time datetime='2026-10-26T17:34:00+00:00'></time></a></div>`;
@@ -111,6 +113,30 @@ test("공개 배포된 신한 PDF 링크는 HTTPS로 요청하고 개별 기업 
     return new Response("%PDF-test", { headers: { "content-type": "application/pdf" } });
   });
   assert.equal(result.pdfUrl, row.pdfUrl);
+});
+
+test("티커 없는 기업 리뷰의 단축주소는 내려받지 않고 저장된 오류 재시도도 제외합니다", async () => {
+  const content = "『대우건설: 수익성 개선세 지속』<br>신한 건설/리츠/부동산<br>동사 단독 수의계약 구도 분석<br>▶️ 3Q26 Review: 수익성 개선<br>▶️ Valuation &amp; Risk<br>: TP 1.9만원(하향), BUY<br>※ 원문 확인: <a href='https://buly.kr/company-review'>원문</a>";
+  const report = parsePublicChannel(post("shinhanresearch", 53303, content), "shinhan", "shinhanresearch").reports[0];
+  // Existing observations already stored this category; filtering must still
+  // work when a saved error is retried without collecting the channel again.
+  const saved = JSON.parse(JSON.stringify({ ...report, category: "산업" })) as IndustryReport;
+  assert.equal(classifyIndustry(saved).status, "excluded");
+  const store = new IndustryStore(); let downloads = 0;
+  try {
+    const result = await processIndustry([saved], { store, live: false,
+      inspect: async () => { downloads++; throw new Error("제외 대상의 PDF를 요청하면 안 됩니다."); } });
+    assert.equal(result.excluded, 1); assert.equal(result.errors, 0); assert.equal(downloads, 0);
+    assert.equal(result.sent, 0);
+  } finally { store.close(); }
+});
+
+test("산업 심층 리포트 게시물의 기업 실적·목표주가 부록은 제외 근거로 쓰지 않습니다", () => {
+  for (const title of ["『미국 반도체 산업: 메모리 전망』", "『미국 반도체: 메모리 In-Depth』"]) {
+    const content = title + "<br>미국 반도체 업종과 동사 등 관련 기업을 분석합니다.<br>기업 부록: 3Q26 Review<br>Valuation &amp; Risk<br>TP 19,000원<br>※ 원문 확인: <a href='https://buly.kr/industry-report'>원문</a>";
+    const report = parsePublicChannel(post("shinhanresearch", 53304, content), "shinhan", "shinhanresearch").reports[0];
+    assert.notEqual(classifyIndustry(report).status, "excluded");
+  }
 });
 
 test("일시적인 공개 조회 연결 오류는 한 번만 다시 요청합니다", async () => {
