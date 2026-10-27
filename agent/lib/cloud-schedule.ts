@@ -52,18 +52,19 @@ export async function runScheduledIndustry(options: {
   if (options.initializeOnly) return { status: "initialized", day, seeded, baselineErrors };
   const hour = now.getUTCHours();
   const lateSchedule = options.allowLate && hour > 8 && hour < 15;
-  // Explicit manual runs may start at any hour; the daily claim still applies.
+  // Explicit manual runs may start at any hour, including after an earlier scan.
   if (!options.manualRun && hour !== 8 && !lateSchedule) return { status: "outside_window", day, seeded, baselineErrors };
   if (!sources.some(source => options.store.initialized(source))) return { status: "baseline_error", day, seeded, baselineErrors };
-  // This atomic SQLite claim survives restarts and simultaneous cron invocations.
-  if (!options.store.claimDay(day, now)) return { status: "already_run", day, seeded, baselineErrors };
+  // GitHub workflow concurrency serializes state restoration and delivery.
+  // Record every scan separately; existing PDF claims still prevent repeat sends.
+  const scanId = options.store.startScan(day, now);
   try {
     const result = await options.scan();
     const status = baselineErrors.length || result.errors || result.uncertain || result.sourceErrors.length || result.coverageWarnings.length ? "partial" : "complete";
-    options.store.finishDay(day, status, result);
-    return { status, day, seeded, baselineErrors, result };
+    options.store.finishScan(scanId, status, result);
+    return { status, day, scanId, seeded, baselineErrors, result };
   } catch {
-    options.store.finishDay(day, "failed", { error: "예약 작업 실행 실패. 전송 상태를 확인해 주세요." });
-    return { status: "failed", day, seeded, baselineErrors };
+    options.store.finishScan(scanId, "failed", { error: "수집 작업 실행 실패. 전송 상태를 확인해 주세요." });
+    return { status: "failed", day, scanId, seeded, baselineErrors };
   }
 }
