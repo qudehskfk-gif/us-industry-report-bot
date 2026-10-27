@@ -10,6 +10,16 @@ export type ScanResult = {
   [key: string]: unknown;
 };
 
+export function cloudRunOptions(env: NodeJS.ProcessEnv = process.env) {
+  const github = env.GITHUB_ACTIONS === "true";
+  const initializeOnly = env.RUN_MODE === "initialize";
+  return {
+    initializeOnly,
+    manualRun: github && env.GITHUB_EVENT_NAME === "workflow_dispatch" && !initializeOnly,
+    allowLate: github && env.GITHUB_EVENT_NAME === "schedule",
+  };
+}
+
 export function checkCloudStatePath(statePath: string, railway: boolean, mountPath?: string) {
   if (!isAbsolute(statePath) || statePath === ":memory:") throw new Error("STATE_PATH에 영구 저장소의 절대 경로를 설정해 주세요.");
   if (railway) {
@@ -24,7 +34,7 @@ export function checkCloudStatePath(statePath: string, railway: boolean, mountPa
 export async function runScheduledIndustry(options: {
   store: IndustryStore; scan: () => Promise<ScanResult>; now?: Date;
   sources?: Source[]; maxPages?: number; collect?: typeof collectSource;
-  initializeOnly?: boolean; allowLate?: boolean;
+  initializeOnly?: boolean; allowLate?: boolean; manualRun?: boolean;
 }) {
   const now = options.now || new Date();
   const sources = options.sources || configuredSources();
@@ -42,7 +52,8 @@ export async function runScheduledIndustry(options: {
   if (options.initializeOnly) return { status: "initialized", day, seeded, baselineErrors };
   const hour = now.getUTCHours();
   const lateSchedule = options.allowLate && hour > 8 && hour < 15;
-  if (hour !== 8 && !lateSchedule) return { status: "outside_window", day, seeded, baselineErrors };
+  // Explicit manual runs may start at any hour; the daily claim still applies.
+  if (!options.manualRun && hour !== 8 && !lateSchedule) return { status: "outside_window", day, seeded, baselineErrors };
   if (!sources.some(source => options.store.initialized(source))) return { status: "baseline_error", day, seeded, baselineErrors };
   // This atomic SQLite claim survives restarts and simultaneous cron invocations.
   if (!options.store.claimDay(day, now)) return { status: "already_run", day, seeded, baselineErrors };
