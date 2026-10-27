@@ -4,6 +4,7 @@ import { checkCloudStatePath, cloudRunOptions, runScheduledIndustry } from "./cl
 import type { Source } from "./industry-sources.ts";
 import { saveGithubState } from "./github-state.ts";
 import { configuredSources } from "./source-config.ts";
+import { sendRunSummary } from "./run-summary.ts";
 
 try {
   if (process.env.BOT_SEND_ENABLED !== "true") throw new Error("운영 설정에 BOT_SEND_ENABLED=true가 필요합니다.");
@@ -21,7 +22,9 @@ try {
       ...cloudRunOptions(),
       scan: () => runIndustryScan(true, { checkpoint: github ? async () => { saveGithubState(); } : undefined }),
     });
-    console.log(JSON.stringify({ event: "daily_industry_reports", ...result }));
+    const summary = await sendRunSummary(result);
+    console.log(JSON.stringify({ event: "daily_industry_reports", ...result, summary }));
+    if (["failed", "uncertain"].includes(summary.status)) process.exitCode = 1;
     if (["partial", "failed", "baseline_error"].includes(result.status) || result.baselineErrors.length) process.exitCode = 1;
   } finally { store.close(); }
 } catch (error) {
