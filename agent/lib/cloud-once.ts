@@ -1,6 +1,6 @@
 import { IndustryStore } from "./industry-store.ts";
 import { runIndustryScan } from "./industry-bot.ts";
-import { checkCloudStatePath, runScheduledIndustry } from "./cloud-schedule.ts";
+import { checkCloudStatePath, cloudRunOptions, runScheduledIndustry } from "./cloud-schedule.ts";
 import type { Source } from "./industry-sources.ts";
 import { saveGithubState } from "./github-state.ts";
 import { configuredSources } from "./source-config.ts";
@@ -18,8 +18,7 @@ try {
   try {
     const github = process.env.GITHUB_ACTIONS === "true";
     const result = await runScheduledIndustry({ store, sources: names as Source[], maxPages,
-      initializeOnly: process.env.RUN_MODE === "initialize",
-      allowLate: github && process.env.GITHUB_EVENT_NAME === "schedule",
+      ...cloudRunOptions(),
       scan: () => runIndustryScan(true, { checkpoint: github ? async () => { saveGithubState(); } : undefined }),
     });
     console.log(JSON.stringify({ event: "daily_industry_reports", ...result }));
