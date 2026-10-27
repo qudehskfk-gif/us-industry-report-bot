@@ -8,6 +8,7 @@ on:
       - 'agent/lib/cloud-schedule.ts'
       - 'agent/lib/industry-filter.ts'
       - 'agent/lib/industry-bot.ts'
+      - 'agent/lib/industry-store.ts'
       - 'agent/tools/scan_reports.ts'
       - 'agent/lib/requested-review-batch.ts'
       - 'scripts/send-requested-reviews.ts'
