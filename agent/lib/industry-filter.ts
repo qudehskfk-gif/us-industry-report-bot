@@ -11,6 +11,16 @@ const company = /\bcompany\s*(?:in[ -]?depth|deep[ -]?dive|update|brief|note|rep
 
 export function classifyIndustry(report: IndustryReport): Decision {
   if (!["산업", "산업분석", "업종분석"].includes(report.category)) return { status: "excluded", reason: "산업분석 게시물이 아닙니다." };
+  const post = (report.excerpt || "").slice(0, 12000);
+  // Some channel posts omit the company ticker from the title. Recognize the
+  // company earnings-review template before downloading, including saved retries.
+  // Keep explicit industry/depth titles and avoid judging later company appendices.
+  if (isChannelSource(report.source) && /^『[^:：\n]+[:：][^\n]+』$/u.test(report.title) &&
+    !depth.test(report.title) && !/산업|업종|섹터|\bindustry\b|\bsector\b/iu.test(report.title) &&
+    /동사/u.test(post.slice(0, 600)) && /\b[1-4]Q\s*\d{2,4}\s*(?:Review|Preview)\b/iu.test(post) &&
+    /Valuation\s*&\s*Risk/iu.test(post) && /\bTP\s*[:：]?\s*\d[\d,.]*\s*(?:만\s*)?원/iu.test(post)) {
+    return { status: "excluded", reason: "공개 게시물에서 개별 기업 실적 리뷰와 목표주가가 확인됐습니다." };
+  }
   const front = (report.coverText || "").slice(0, 1400);
   if (company.test(front)) return { status: "excluded", reason: "표지에서 개별 기업 분석 유형이 확인됐습니다." };
   if (routine.test(report.title) && !depth.test(report.title)) {
