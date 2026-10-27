@@ -26,7 +26,10 @@ export class IndustryStore {
         updated TEXT NOT NULL,message_id TEXT,title TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS industry_schedule_runs(
         day TEXT PRIMARY KEY,status TEXT NOT NULL,started_at TEXT NOT NULL,
-        finished_at TEXT,result_json TEXT);`);
+        finished_at TEXT,result_json TEXT);
+      CREATE TABLE IF NOT EXISTS industry_scan_runs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,day TEXT NOT NULL,status TEXT NOT NULL,
+        started_at TEXT NOT NULL,finished_at TEXT,result_json TEXT);`);
   }
   known(source: Source): Set<string> {
     return new Set(this.db.prepare("SELECT source_id FROM industry_observations WHERE source=?").all(source).map(x => String(x.source_id)));
@@ -82,6 +85,15 @@ export class IndustryStore {
     this.db.prepare("UPDATE industry_deliveries SET status=?,updated=?,message_id=? WHERE id=?")
       .run(status, new Date().toISOString(), messageId, id);
   }
+  startScan(day: string, now = new Date()): number {
+    return Number(this.db.prepare("INSERT INTO industry_scan_runs(day,status,started_at) VALUES(?,'running',?)")
+      .run(day, now.toISOString()).lastInsertRowid);
+  }
+  finishScan(id: number, status: "complete" | "partial" | "failed", result: Record<string, unknown>) {
+    this.db.prepare("UPDATE industry_scan_runs SET status=?,finished_at=?,result_json=? WHERE id=?")
+      .run(status, new Date().toISOString(), JSON.stringify(result), id);
+  }
+  // Legacy day claims remain readable; current scans no longer use a daily limit.
   claimDay(day: string, now = new Date()): boolean {
     return Number(this.db.prepare("INSERT OR IGNORE INTO industry_schedule_runs(day,status,started_at) VALUES(?,'running',?)")
       .run(day, now.toISOString()).changes) === 1;
@@ -97,6 +109,7 @@ export class IndustryStore {
       deliveries: this.db.prepare("SELECT * FROM industry_deliveries ORDER BY updated DESC LIMIT 50").all(),
       review: this.db.prepare("SELECT source,source_id,reason FROM industry_observations WHERE status='review' LIMIT 50").all(),
       scheduledRuns: this.db.prepare("SELECT day,status,started_at,finished_at FROM industry_schedule_runs ORDER BY day DESC LIMIT 7").all(),
+      scanRuns: this.db.prepare("SELECT id,day,status,started_at,finished_at FROM industry_scan_runs ORDER BY id DESC LIMIT 50").all(),
     };
   }
   close() { this.db.close(); }
