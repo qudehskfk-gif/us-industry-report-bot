@@ -7,8 +7,12 @@ on:
       - 'agent/lib/cloud-once.ts'
       - 'agent/lib/cloud-schedule.ts'
       - 'agent/lib/industry-filter.ts'
+      - 'agent/lib/requested-review-batch.ts'
+      - 'scripts/send-requested-reviews.ts'
       - 'tests/cloud-schedule.test.ts'
       - 'tests/public-channels.test.ts'
+      - 'tests/requested-review-batch.test.ts'
+      - '.github/workflows/requested-reviews.yml'
       - '.github/workflows/code-checks.yml'
 
 permissions:
