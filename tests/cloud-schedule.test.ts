@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { IndustryStore } from "../agent/lib/industry-store.ts";
-import { checkCloudStatePath, runScheduledIndustry } from "../agent/lib/cloud-schedule.ts";
+import { checkCloudStatePath, cloudRunOptions, runScheduledIndustry } from "../agent/lib/cloud-schedule.ts";
 import type { ScanResult } from "../agent/lib/cloud-schedule.ts";
 import type { IndustryReport, Source, SourceResult } from "../agent/lib/industry-sources.ts";
 
@@ -121,4 +121,54 @@ test("수동 초기화는 오후 5시에 실행해도 리포트를 발송하지 
     assert.equal(result.status, "initialized"); assert.equal(calls, 0);
     assert.equal(store.status().scheduledRuns.length, 0);
   } finally { store.close(); }
+});
+
+test("GitHub 수동 실행은 한국시간 자정 직후와 오전, 오후 6시 이후에도 수집합니다", async () => {
+  const timing = cloudRunOptions({ GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", RUN_MODE: "scheduled" });
+  for (const time of ["2026-10-26T15:01:00Z", "2026-10-27T00:00:00Z", "2026-10-27T09:30:00Z", "2026-10-27T14:59:00Z"]) {
+    const store = new IndustryStore(); warm(store); let calls = 0;
+    try {
+      const result = await runScheduledIndustry({ store, collect, now: new Date(time), ...timing,
+        scan: async () => { calls++; return success(); } });
+      assert.equal(result.status, "complete", time); assert.equal(result.day, "2026-10-27");
+      assert.equal(calls, 1); assert.equal(store.status().scheduledRuns.length, 1);
+    } finally { store.close(); }
+  }
+});
+
+test("수동·예약 실행 순서가 바뀌거나 수동 버튼을 반복해도 같은 한국 날짜에는 한 번만 수집합니다", async () => {
+  const manual = cloudRunOptions({ GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", RUN_MODE: "scheduled" });
+  const scheduled = cloudRunOptions({ GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "schedule", RUN_MODE: "scheduled" });
+  for (const pair of [
+    [{ time: "2026-10-27T09:30:00Z", timing: manual }, { time: "2026-10-27T10:00:00Z", timing: scheduled }],
+    [{ time: "2026-10-27T08:00:00Z", timing: scheduled }, { time: "2026-10-27T09:30:00Z", timing: manual }],
+    [{ time: "2026-10-27T00:00:00Z", timing: manual }, { time: "2026-10-27T09:30:00Z", timing: manual }],
+  ]) {
+    const store = new IndustryStore(); warm(store); let calls = 0;
+    const scan = async () => { calls++; return success(); };
+    try {
+      const first = await runScheduledIndustry({ store, collect, now: new Date(pair[0].time), ...pair[0].timing, scan });
+      const second = await runScheduledIndustry({ store, collect, now: new Date(pair[1].time), ...pair[1].timing, scan });
+      assert.equal(first.status, "complete"); assert.equal(second.status, "already_run");
+      assert.equal(calls, 1); assert.equal(store.status().scheduledRuns.length, 1);
+    } finally { store.close(); }
+  }
+});
+
+test("시간 제한 해제는 GitHub 수동 발송에만 적용하고 수동 초기화는 계속 발송하지 않습니다", async () => {
+  const now = new Date("2026-10-27T09:30:00Z");
+  for (const env of [
+    { GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "push", RUN_MODE: "scheduled" },
+    { GITHUB_ACTIONS: "false", GITHUB_EVENT_NAME: "workflow_dispatch", RUN_MODE: "scheduled" },
+    { GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", RUN_MODE: "initialize" },
+  ]) {
+    const store = new IndustryStore(); let calls = 0;
+    try {
+      const result = await runScheduledIndustry({ store, collect, now, ...cloudRunOptions(env),
+        scan: async () => { calls++; return success(); } });
+      assert.equal(result.status, env.RUN_MODE === "initialize" ? "initialized" : "outside_window");
+      assert.equal(calls, 0); assert.equal(store.status().scheduledRuns.length, 0);
+      assert.equal(store.pending("labels-v1").length, 0);
+    } finally { store.close(); }
+  }
 });
