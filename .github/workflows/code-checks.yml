@@ -6,7 +6,9 @@ on:
     paths:
       - 'agent/lib/cloud-once.ts'
       - 'agent/lib/cloud-schedule.ts'
+      - 'agent/lib/industry-filter.ts'
       - 'tests/cloud-schedule.test.ts'
+      - 'tests/public-channels.test.ts'
       - '.github/workflows/code-checks.yml'
 
 permissions:
