@@ -16,7 +16,8 @@ export async function processIndustry(reports: IndustryReport[], options: {
   sender?: (document: TelegramDocument) => Promise<string>; policy?: string; throttleMs?: number;
   checkpoint?: () => Promise<void>;
 }) {
-  const result = { checked: 0, eligible: 0, excluded: 0, review: 0, sent: 0, duplicates: 0, errors: 0, uncertain: 0, previews: [] as string[] };
+  const result = { checked: 0, eligible: 0, excluded: 0, review: 0, sent: 0, duplicates: 0, errors: 0, uncertain: 0,
+    excludedReports: [] as { title: string; broker: string; reason: string }[], previews: [] as string[] };
   const seen = new Set<string>();
   const policy = options.policy || INDUSTRY_POLICY;
   for (let r of reports) {
@@ -55,6 +56,7 @@ export async function processIndustry(reports: IndustryReport[], options: {
     }
     if (decision.status !== "eligible") {
       result[decision.status]++;
+      if (decision.status === "excluded") result.excludedReports.push({ title: r.title, broker: r.broker, reason: decision.reason });
       if (options.live) options.store.save(r, decision.status, decision.reason, policy);
       continue;
     }
