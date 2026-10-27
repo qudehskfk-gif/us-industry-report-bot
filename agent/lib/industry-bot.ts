@@ -1,6 +1,6 @@
 import { DeliveryError, sendTelegramDocument } from "./report-bot.ts";
 import type { TelegramDocument } from "./report-bot.ts";
-import { classifyIndustry, industryCaption, industryFilename, industryKey } from "./industry-filter.ts";
+import { classifyIndustry, hasMinimumReportPages, INDUSTRY_POLICY, industryCaption, industryFilename, industryKey } from "./industry-filter.ts";
 import type { Decision } from "./industry-filter.ts";
 import { classifyDomesticIssuer, classifyUsFocus } from "./industry-focus.ts";
 import { collectSource, inspectPdf } from "./industry-sources.ts";
@@ -18,7 +18,7 @@ export async function processIndustry(reports: IndustryReport[], options: {
 }) {
   const result = { checked: 0, eligible: 0, excluded: 0, review: 0, sent: 0, duplicates: 0, errors: 0, uncertain: 0, previews: [] as string[] };
   const seen = new Set<string>();
-  const policy = options.policy || "us-industry-labels-v2";
+  const policy = options.policy || INDUSTRY_POLICY;
   for (let r of reports) {
     result.checked++;
     let decision = classifyIndustry(r);
@@ -39,7 +39,7 @@ export async function processIndustry(reports: IndustryReport[], options: {
       }
       decision = classifyIndustry(r);
     }
-    if (decision.status === "review" && options.classifyAi) {
+    if (decision.status === "review" && options.classifyAi && hasMinimumReportPages(r)) {
       try { decision = await options.classifyAi(r); }
       catch {
         result.errors++;
@@ -141,7 +141,7 @@ export async function runIndustryScan(live = false, dependencies: {
       if (source.truncated && alreadyInitialized) coverageWarnings.push(`${source.source}: 이전 확인 지점에 도달하지 못했습니다. 확인 페이지 수를 늘려야 할 수 있습니다.`);
     }
     const aiEnabled = live && process.env.AI_CLASSIFY === "true";
-    const policy = aiEnabled ? `us-industry-hybrid-v2:${process.env.CLASSIFIER_MODEL || process.env.SUMMARY_MODEL}` : "us-industry-labels-v2";
+    const policy = aiEnabled ? `${INDUSTRY_POLICY}:ai:${process.env.CLASSIFIER_MODEL || process.env.SUMMARY_MODEL}` : INDUSTRY_POLICY;
     // Snapshot all due work for the one daily delivery window; preview alone is capped.
     const jobs = live ? store.pending(policy, -1, Date.now(), sources) : successes.flatMap(x => x.reports).slice(0, limit);
     const ai = aiEnabled || (live && process.env.AI_SUMMARY === "true") ? await import("./industry-ai.ts") : undefined;
@@ -151,7 +151,7 @@ export async function runIndustryScan(live = false, dependencies: {
       classifyAi: aiEnabled ? ai!.classifyWithAi : undefined,
       summarize: live && process.env.AI_SUMMARY === "true" ? ai!.summarizeIndustry : undefined,
     });
-    return { mode: "us_industry_in_depth", ...result, seeded, newlyRegistered,
+    return { mode: "us_industry_min10_pages", ...result, seeded, newlyRegistered,
       collected: successes.map(x => ({ source: x.source, count: x.reports.length })), sourceErrors, coverageWarnings };
   } finally { store.close(); }
 }
