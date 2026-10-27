@@ -1,0 +1,62 @@
+name: Send requested review PDFs once
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_batch:
+        description: 'Explicitly approved 22 posts only'
+        required: true
+        type: string
+        default: 'review-2026-10-27-depth-22'
+      send:
+        description: 'Send the requested review PDFs to the existing Telegram chat'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: industry-reports-daily
+  cancel-in-progress: false
+
+jobs:
+  send-requested:
+    if: ${{ inputs.send && inputs.approved_batch == 'review-2026-10-27-depth-22' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Configure existing notification history
+        shell: bash
+        run: |
+          echo "STATE_REPO_DIR=$RUNNER_TEMP/report-bot-state" >> "$GITHUB_ENV"
+          echo "STATE_PATH=$RUNNER_TEMP/report-bot-state/deliveries.sqlite" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --omit=dev
+      - name: Restore notification history
+        id: history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-state.ts load
+      - name: Send only the explicitly requested review batch
+        env:
+          APPROVED_REVIEW_BATCH: ${{ inputs.approved_batch }}
+          BOT_SEND_ENABLED: 'true'
+          AI_CLASSIFY: 'false'
+          AI_SUMMARY: 'false'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/send-requested-reviews.ts
+      - name: Keep notification history
+        if: ${{ always() && steps.history.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-state.ts save
+
