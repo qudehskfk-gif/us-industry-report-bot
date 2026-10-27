@@ -54,7 +54,7 @@ test("토스 인사이트의 산업 범위와 원문 첨부를 확인하며 일�
   const input = await json("toss.json"), p = parseToss(input);
   assert.equal(p.reports[0].sourceId, "21460");
   assert.equal(p.reports[0].category, "산업");
-  assert.equal(classifyIndustry(p.reports[0]).status, "eligible");
+  assert.equal(classifyIndustry(p.reports[0]).status, "review");
   assert.match(p.reports[0].pdfUrl!, /home-files\.tossinvest\.com/);
   const general = structuredClone(input); general.result.list[0].title = "QnA 2026"; general.result.list[0].contents = "일반 주식시장 전망";
   assert.equal(parseToss(general).reports[0].category, "기타");

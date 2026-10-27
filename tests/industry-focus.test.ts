@@ -10,7 +10,7 @@ const report: IndustryReport = {
   source: "naver", sourceId: "us-focus-fixture", category: "산업", code: "", sector: "반도체",
   sourceUrl: "https://stock.naver.com/research/industry/1", url: "https://stock.naver.com/research/industry/1",
   published: "2026-10-26", broker: "삼성증권", author: "가상", title: "반도체 밸류체인 In-Depth",
-  coverText: "Industry In-Depth Report", pdfBytes: new TextEncoder().encode("%PDF-fake-test-only"),
+  coverText: "Industry In-Depth Report", pages: 10, pdfBytes: new TextEncoder().encode("%PDF-fake-test-only"),
 };
 const usBody = "엔비디아의 데이터센터 매출과 시장 점유율을 분석합니다. 엔비디아는 차세대 제품 출시로 수요가 확대될 것으로 전망됩니다. 경쟁 기업과 비교하면 공급망 확보와 설비투자 계획은 수익성에 중요한 변수입니다. 중장기 실적은 인공지능 서비스 도입과 클라우드 고객의 투자 확대에 따라 성장할 것으로 예상됩니다. 매출 구성과 영업이익 추정, 밸류에이션을 여러 시나리오로 분석하며 향후 경쟁력의 지속 가능성을 판단합니다.";
 
@@ -81,8 +81,8 @@ test("미확인 발행사는 PDF 수집과 전송 전에 보류합니다", async
     assert.equal(result.review, 1); assert.equal(result.errors, 0); assert.equal(result.sent, 0);
   } finally { store.close(); }
 });
-test("표지 뒤 4쪽의 미국 종목 분석도 찾으며 표지와 원문 바이트를 보존합니다", async () => {
-  const texts = ["Industry In-Depth Report", "Contents", "Industry overview", "NVIDIA revenue is expected to grow. NVIDIA earnings and margin outlook are expected to improve as semiconductor demand expands. Market share and valuation are analyzed across several growth scenarios for the industry."];
+test("심층 표기가 없는 실제 10쪽 PDF도 4쪽의 미국 종목 분석으로 전송하고 원문을 보존합니다", async () => {
+  const texts = ["Industry Report", "Contents", "Industry overview", "NVIDIA revenue is expected to grow. NVIDIA earnings and margin outlook are expected to improve as semiconductor demand expands. Market share and valuation are analyzed across several growth scenarios for the industry.", ...Array.from({ length: 6 }, () => "Industry background")];
   const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
   const kids: string[] = [];
   for (const text of texts) {
@@ -97,9 +97,18 @@ test("표지 뒤 4쪽의 미국 종목 분석도 찾으며 표지와 원문 바�
   const start = pdf.length;
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(n => `${String(n).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF\n`;
   const original = new TextEncoder().encode(pdf);
-  const result = await inspectPdf({ ...report, pdfUrl: "https://stock.pstatic.net/test.pdf" }, async () => new Response(original));
+  const result = await inspectPdf({ ...report, title: "반도체 밸류체인 전망", pages: undefined, pdfUrl: "https://stock.pstatic.net/test.pdf" }, async () => new Response(original));
+  assert.equal(result.pages, 10);
+  assert.doesNotMatch(result.coverText!, /In-Depth/);
   assert.doesNotMatch(result.coverText!, /NVIDIA/);
   assert.match(result.analysisText!, /NVIDIA/);
   assert.equal(classifyUsFocus(result).status, "eligible");
   assert.deepEqual(result.pdfBytes, original);
+  const store = new IndustryStore();
+  try {
+    let sends = 0;
+    const processed = await processIndustry([result], { store, live: true, inspect: async r => r,
+      sender: async document => { sends++; assert.deepEqual(document.bytes, original); return "1"; } });
+    assert.equal(processed.sent, 1); assert.equal(sends, 1);
+  } finally { store.close(); }
 });
